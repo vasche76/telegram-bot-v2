@@ -1,0 +1,17 @@
+.env
+.env.*
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+data/*.db
+data/*.db-wal
+data/*.db-shm
+telegram-bot-backups/
+*.log
+/tmp/
+
+.claude/
+data/.fuse_hidden*

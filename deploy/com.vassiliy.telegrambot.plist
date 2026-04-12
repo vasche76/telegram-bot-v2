@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS launchd service for Telegram Bot v2.
+
+  INSTALL STEPS (run in Terminal):
+    1. Copy this file to ~/Library/LaunchAgents/
+       cp deploy/com.vassiliy.telegrambot.plist ~/Library/LaunchAgents/
+
+    2. Edit the plist — set WorkingDirectory and ProgramArguments python3 path
+       to match your installation (check: which python3 or ls /Library/Frameworks/Python.framework/Versions/)
+
+    3. Load the service:
+       launchctl load ~/Library/LaunchAgents/com.vassiliy.telegrambot.plist
+
+    4. Check status:
+       launchctl list | grep telegrambot
+
+    5. View logs:
+       tail -f /tmp/telegrambot.log
+       tail -f /tmp/telegrambot_err.log
+
+  STOP:
+    launchctl unload ~/Library/LaunchAgents/com.vassiliy.telegrambot.plist
+
+  START AFTER STOP:
+    launchctl load ~/Library/LaunchAgents/com.vassiliy.telegrambot.plist
+
+  UPDATE BOT CODE (no downtime restart):
+    launchctl kickstart -k gui/$(id -u)/com.vassiliy.telegrambot
+
+  WHAT THIS DOES:
+  - Starts the bot automatically when you log in to macOS.
+  - Restarts within 10 seconds if it crashes (exit code != 0).
+  - Does NOT restart on clean stop (exit code 0) or invalid token (exit code 1).
+  - Keeps running even if you close Terminal.
+  - Captures stdout + stderr to /tmp/telegrambot.log and telegrambot_err.log.
+  - ExitTimeout=30 gives the bot 30s to flush DB and logs before SIGKILL.
+-->
+<plist version="1.0">
+<dict>
+    <!-- Unique service identifier -->
+    <key>Label</key>
+    <string>com.vassiliy.telegrambot</string>
+
+    <!-- IMPORTANT: Update this path to match your actual project location -->
+    <key>WorkingDirectory</key>
+    <string>/Users/imac/telegram-bot-v2-service</string>
+
+    <!-- Command to run — use full path to python3 from your virtualenv or system install -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+        <string>main.py</string>
+    </array>
+
+    <!-- Auto-restart only on non-zero (unsuccessful) exit.
+         Exit code 0 = clean stop (launchctl unload / Ctrl+C) -> no restart.
+         Exit code 2 = watchdog crash restart -> launchd restarts.
+         Exit code 1 = invalid token / fatal config -> do NOT restart (avoids API hammering). -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Give the bot 30 seconds to flush logs and close DB cleanly on SIGTERM -->
+    <key>ExitTimeout</key>
+    <integer>30</integer>
+
+    <!-- Start automatically when user logs in -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Log files -->
+    <key>StandardOutPath</key>
+    <string>/tmp/telegrambot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/telegrambot_err.log</string>
+
+    <!-- Environment variables (supplement to .env file) -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PATH</key>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
