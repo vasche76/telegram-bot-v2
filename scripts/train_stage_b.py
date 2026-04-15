@@ -127,6 +127,10 @@ def _info(msg: str) -> None:
     print(f"[INFO] {msg}")
 
 
+def _warn(msg: str) -> None:
+    print(f"[WARN] {msg}")
+
+
 def _images_in(folder: Path) -> list[Path]:
     return sorted(p for p in folder.iterdir() if p.suffix.lower() in IMAGE_EXTS)
 
