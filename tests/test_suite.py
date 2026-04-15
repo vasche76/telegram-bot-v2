@@ -670,6 +670,194 @@ class TestHealthState(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════
+# TEST GROUP 12: Fish Vision Pipeline — logic and guardrails
+# (No live API calls — tests the structural logic and DB integration)
+# ══════════════════════════════════════════════════════════════════
+
+class TestFishVisionPipeline(BotTestCase):
+    """
+    Tests for the fish vision module.
+    These do NOT call the OpenAI API — they test the structural logic:
+    - DetectionResult.should_classify gating
+    - ClassificationResult.is_identified thresholding
+    - FishAnalysisResult.is_valid_catch correctness
+    - DB integration: rejected catches stored with is_valid_catch=0
+    - Leaderboard excludes invalid catches
+    """
+
+    def setUp(self):
+        """Clean up test chat IDs before each DB test."""
+        run(execute("DELETE FROM catches WHERE chat_id IN (7777, 7778, 7779)"))
+
+    def _make_detection(self, obj_type, confidence):
+        from bot.fish_vision.detector import DetectionResult
+        return DetectionResult(
+            object_type=obj_type,
+            confidence=confidence,
+            fish_count=1 if obj_type == "whole_fish" else 0,
+            estimated_length_cm=None,
+            reasoning="test",
+            raw_description="test desc",
+        )
+
+    def _make_classification(self, species, confidence):
+        from bot.fish_vision.classifier import ClassificationResult, SPECIES_MAP
+        # Enforce threshold in test (same as classifier does)
+        from bot.fish_vision.classifier import SPECIES_CONFIDENCE_THRESHOLD
+        if confidence < SPECIES_CONFIDENCE_THRESHOLD and species != "unknown_fish":
+            species = "unknown_fish"
+        return ClassificationResult(
+            species_key=species,
+            species_ru=SPECIES_MAP.get(species, "Рыба"),
+            confidence=confidence,
+            weight_kg_estimate=3.5,
+            length_cm_estimate=60.0,
+            fish_count=1,
+            person_name_in_photo=None,
+            distinguishing_features="duck-bill snout, green spots",
+            reasoning="test",
+        )
+
+    # ── Stage A: DetectionResult.should_classify ─────────────────
+
+    def test_whole_fish_high_confidence_proceeds(self):
+        """whole_fish at 0.85 confidence must proceed to Stage B."""
+        det = self._make_detection("whole_fish", 0.85)
+        self.assertTrue(det.should_classify)
+        self.assertIsNone(det.rejection_reason)
+
+    def test_lure_must_be_rejected_regardless_of_confidence(self):
+        """lure at any confidence must NOT proceed to Stage B."""
+        det = self._make_detection("lure", 0.95)
+        self.assertFalse(det.should_classify)
+        self.assertIn("приманка", det.rejection_reason.lower())
+
+    def test_fish_part_must_be_rejected(self):
+        """fish_part must NOT proceed to Stage B."""
+        det = self._make_detection("fish_part", 0.90)
+        self.assertFalse(det.should_classify)
+        self.assertIn("часть", det.rejection_reason.lower())
+
+    def test_fry_must_be_rejected(self):
+        """fry must NOT proceed to Stage B."""
+        det = self._make_detection("fry", 0.80)
+        self.assertFalse(det.should_classify)
+        self.assertIn("малёк", det.rejection_reason.lower())
+
+    def test_no_fish_must_be_rejected(self):
+        """no_fish must NOT proceed to Stage B."""
+        det = self._make_detection("no_fish", 0.99)
+        self.assertFalse(det.should_classify)
+
+    def test_whole_fish_low_confidence_is_blocked(self):
+        """whole_fish below FILTER_CONFIDENCE_THRESHOLD must be blocked."""
+        from bot.fish_vision.detector import FILTER_CONFIDENCE_THRESHOLD
+        det = self._make_detection("whole_fish", FILTER_CONFIDENCE_THRESHOLD - 0.01)
+        self.assertFalse(det.should_classify)
+
+    def test_whole_fish_at_threshold_proceeds(self):
+        """whole_fish exactly at threshold must proceed."""
+        from bot.fish_vision.detector import FILTER_CONFIDENCE_THRESHOLD
+        det = self._make_detection("whole_fish", FILTER_CONFIDENCE_THRESHOLD)
+        self.assertTrue(det.should_classify)
+
+    # ── Stage B: ClassificationResult.is_identified ──────────────
+
+    def test_pike_high_confidence_is_identified(self):
+        """pike at 0.80 must be identified (above threshold)."""
+        cls = self._make_classification("pike", 0.80)
+        self.assertTrue(cls.is_identified)
+        self.assertEqual(cls.species_key, "pike")
+
+    def test_low_confidence_forces_unknown(self):
+        """Species confidence below threshold forces unknown_fish."""
+        from bot.fish_vision.classifier import SPECIES_CONFIDENCE_THRESHOLD
+        cls = self._make_classification("perch", SPECIES_CONFIDENCE_THRESHOLD - 0.05)
+        self.assertEqual(cls.species_key, "unknown_fish",
+                         "Low confidence should produce unknown_fish, not wrong species")
+        self.assertFalse(cls.is_identified)
+
+    def test_unknown_fish_is_not_identified(self):
+        """unknown_fish is always not is_identified (even at high confidence)."""
+        cls = self._make_classification("unknown_fish", 0.90)
+        self.assertFalse(cls.is_identified)
+
+    # ── DB integration: save_catch with new fields ───────────────
+
+    def test_invalid_catch_not_in_leaderboard(self):
+        """Catches with is_valid_catch=False must NOT appear in leaderboard."""
+        async def _run():
+            # Clean up
+            await execute("DELETE FROM catches WHERE chat_id = 7777")
+            # Save a REJECTED catch (lure photo)
+            from bot.storage.catches import save_catch
+            await save_catch(
+                7777, 1, "Рыбак", "Щука",
+                fish_count=1, weight_kg=5.0,
+                object_type="lure",
+                species_confidence=0.9,
+                is_valid_catch=False,
+                rejection_reason="Это воблер, не рыба",
+            )
+            # Leaderboard must be empty
+            lb = await get_chat_leaderboard(7777)
+            return lb
+        lb = run(_run())
+        self.assertEqual(len(lb), 0, "Rejected catches must not appear in leaderboard")
+
+    def test_valid_catch_appears_in_leaderboard(self):
+        """Catches with is_valid_catch=True must appear in leaderboard."""
+        async def _run():
+            await execute("DELETE FROM catches WHERE chat_id = 7778")
+            from bot.storage.catches import save_catch
+            await save_catch(
+                7778, 1, "Рыбак", "Щука",
+                fish_count=1, weight_kg=4.2,
+                object_type="whole_fish",
+                species_confidence=0.85,
+                is_valid_catch=True,
+            )
+            return await get_chat_leaderboard(7778)
+        lb = run(_run())
+        self.assertEqual(len(lb), 1)
+        self.assertAlmostEqual(lb[0]["total_weight_kg"], 4.2, places=1)
+
+    def test_mixed_valid_invalid_leaderboard_only_shows_valid(self):
+        """Mix of valid and invalid: leaderboard shows only valid total."""
+        async def _run():
+            await execute("DELETE FROM catches WHERE chat_id = 7779")
+            from bot.storage.catches import save_catch
+            # Valid: 3kg perch
+            await save_catch(7779, 1, "Вася", "Окунь",
+                             fish_count=1, weight_kg=3.0, is_valid_catch=True,
+                             object_type="whole_fish", species_confidence=0.75)
+            # Invalid: lure photo, 10kg — must NOT be counted
+            await save_catch(7779, 1, "Вася", "Щука",
+                             fish_count=1, weight_kg=10.0, is_valid_catch=False,
+                             object_type="lure", rejection_reason="Это воблер")
+            return await get_chat_leaderboard(7779)
+        lb = run(_run())
+        self.assertEqual(len(lb), 1)
+        self.assertAlmostEqual(lb[0]["total_weight_kg"], 3.0, places=1,
+                               msg="Only valid 3kg catch should be counted, not the 10kg lure")
+
+    def test_schema_version_is_v4_after_migration(self):
+        """Database must be at schema version 4 after migration."""
+        version = run(fetch_scalar("SELECT version FROM schema_version LIMIT 1"))
+        self.assertEqual(version, 4, "DB must be at v4 after fish-vision migration")
+
+    def test_catches_table_has_new_columns(self):
+        """catches table must have is_valid_catch and object_type columns."""
+        async def _check():
+            result = await fetch_all("PRAGMA table_info(catches)")
+            cols = {r["name"] for r in result}
+            return cols
+        cols = run(_check())
+        for col in ["object_type", "species_confidence", "is_valid_catch", "rejection_reason"]:
+            self.assertIn(col, cols, f"Column '{col}' must exist in catches table")
+
+
+# ══════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════
 

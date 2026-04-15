@@ -15,3 +15,27 @@ telegram-bot-backups/
 
 .claude/
 data/.fuse_hidden*
+
+# ── ML model weights (large binary files — store in DVC / S3, not git) ─────────
+data/fish_models/*.pt
+data/fish_models/*.pth
+data/runs/
+
+# ── Training dataset images (large; source from owner's photo library) ──────────
+data/fish_dataset/**/*.jpg
+data/fish_dataset/**/*.jpeg
+data/fish_dataset/**/*.png
+data/fish_dataset/**/*.webp
+data/fish_dataset/**/*.bmp
+data/fish_dataset/**/*.tiff
+
+# ── Evaluation image cache ───────────────────────────────────────────────────────
+data/eval_cases/**/.eval_cache.json
+data/eval_cases/**/*.jpg
+data/eval_cases/**/*.jpeg
+data/eval_cases/**/*.png
+data/eval_cases/**/*.webp
+
+# Root / external model weights
+yolov8n.pt
+*.cache

@@ -1,0 +1,80 @@
+{
+  "source": "augment_dataset.py",
+  "generated_at": "2026-04-15T16:43:57.177616+00:00",
+  "target": 60,
+  "augmented": {
+    "wiki_lure_1_Fishing_floats_used_to_steer_lures.jpg": [
+      "wiki_lure_1_Fishing_floats_used_to_steer_lures_aug_hflip.jpg",
+      "wiki_lure_1_Fishing_floats_used_to_steer_lures_aug_rot15.jpg",
+      "wiki_lure_1_Fishing_floats_used_to_steer_lures_aug_rot_15.jpg",
+      "wiki_lure_1_Fishing_floats_used_to_steer_lures_aug_rot30.jpg"
+    ],
+    "wiki_lure_3phase-plug-exYUG.png": [
+      "wiki_lure_3phase-plug-exYUG_aug_hflip.png",
+      "wiki_lure_3phase-plug-exYUG_aug_rot15.png",
+      "wiki_lure_3phase-plug-exYUG_aug_rot_15.png",
+      "wiki_lure_3phase-plug-exYUG_aug_rot30.png"
+    ],
+    "wiki_lure_4_hooked_fishing_bait_lures_viz_jig_spoonlure_plug_spinnerbait.jpg": [
+      "wiki_lure_4_hooked_fishing_bait_lures_viz_jig_spoonlure_plug_spinnerbait_aug_hflip.jpg",
+      "wiki_lure_4_hooked_fishing_bait_lures_viz_jig_spoonlure_plug_spinnerbait_aug_rot15.jpg",
+      "wiki_lure_4_hooked_fishing_bait_lures_viz_jig_spoonlure_plug_spinnerbait_aug_rot_15.jpg",
+      "wiki_lure_4_hooked_fishing_bait_lures_viz_jig_spoonlure_plug_spinnerbait_aug_rot30.jpg"
+    ],
+    "wiki_lure_6Q3A1591_Fishing_lures.jpg": [
+      "wiki_lure_6Q3A1591_Fishing_lures_aug_hflip.jpg",
+      "wiki_lure_6Q3A1591_Fishing_lures_aug_rot15.jpg",
+      "wiki_lure_6Q3A1591_Fishing_lures_aug_rot_15.jpg",
+      "wiki_lure_6Q3A1591_Fishing_lures_aug_rot30.jpg"
+    ],
+    "wiki_lure_Abufiskedrag.jpg": [
+      "wiki_lure_Abufiskedrag_aug_hflip.jpg",
+      "wiki_lure_Abufiskedrag_aug_rot15.jpg",
+      "wiki_lure_Abufiskedrag_aug_rot_15.jpg",
+      "wiki_lure_Abufiskedrag_aug_rot30.jpg"
+    ],
+    "wiki_lure_Angeln_zubehoer_wobbler_01.jpg": [
+      "wiki_lure_Angeln_zubehoer_wobbler_01_aug_hflip.jpg",
+      "wiki_lure_Angeln_zubehoer_wobbler_01_aug_rot15.jpg",
+      "wiki_lure_Angeln_zubehoer_wobbler_01_aug_rot_15.jpg",
+      "wiki_lure_Angeln_zubehoer_wobbler_01_aug_rot30.jpg"
+    ],
+    "wiki_lure_Esca_artificiale_Oppai.jpg": [
+      "wiki_lure_Esca_artificiale_Oppai_aug_hflip.jpg",
+      "wiki_lure_Esca_artificiale_Oppai_aug_rot15.jpg",
+      "wiki_lure_Esca_artificiale_Oppai_aug_rot_15.jpg",
+      "wiki_lure_Esca_artificiale_Oppai_aug_rot30.jpg"
+    ],
+    "wiki_lure_Narcissus_Minnow_2023-04-21_3044.jpg": [
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3044_aug_hflip.jpg",
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3044_aug_rot15.jpg",
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3044_aug_rot_15.jpg",
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3044_aug_rot30.jpg"
+    ],
+    "wiki_lure_Narcissus_Minnow_2023-04-21_3045.jpg": [
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3045_aug_hflip.jpg",
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3045_aug_rot15.jpg",
+      "wiki_lure_Narcissus_Minnow_2023-04-21_3045_aug_rot_15.jpg"
+    ],
+    "wiki_lure_Naval_Museum_-_Deep_Diver_Gears_-_panoramio.jpg": [
+      "wiki_lure_Naval_Museum_-_Deep_Diver_Gears_-_panoramio_aug_hflip.jpg",
+      "wiki_lure_Naval_Museum_-_Deep_Diver_Gears_-_panoramio_aug_rot15.jpg",
+      "wiki_lure_Naval_Museum_-_Deep_Diver_Gears_-_panoramio_aug_rot_15.jpg"
+    ],
+    "wiki_lure_Perch_lures.png": [
+      "wiki_lure_Perch_lures_aug_hflip.png",
+      "wiki_lure_Perch_lures_aug_rot15.png",
+      "wiki_lure_Perch_lures_aug_rot_15.png"
+    ],
+    "wiki_lure_The_Minnow__Weybridge_-_geograph.org.uk_-_5361077.jpg": [
+      "wiki_lure_The_Minnow__Weybridge_-_geograph.org.uk_-_5361077_aug_hflip.jpg",
+      "wiki_lure_The_Minnow__Weybridge_-_geograph.org.uk_-_5361077_aug_rot15.jpg",
+      "wiki_lure_The_Minnow__Weybridge_-_geograph.org.uk_-_5361077_aug_rot_15.jpg"
+    ],
+    "wiki_lure_Weybridge_-_The_Minnow_-_geograph.org.uk_-_7231962.jpg": [
+      "wiki_lure_Weybridge_-_The_Minnow_-_geograph.org.uk_-_7231962_aug_hflip.jpg",
+      "wiki_lure_Weybridge_-_The_Minnow_-_geograph.org.uk_-_7231962_aug_rot15.jpg",
+      "wiki_lure_Weybridge_-_The_Minnow_-_geograph.org.uk_-_7231962_aug_rot_15.jpg"
+    ]
+  }
+}

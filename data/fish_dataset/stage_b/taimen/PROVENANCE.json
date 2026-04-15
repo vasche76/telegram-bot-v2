@@ -1,0 +1,9 @@
+{
+  "source": "iNaturalist",
+  "license_filter": [
+    "cc-by",
+    "cc-by-sa",
+    "cc0"
+  ],
+  "images": {}
+}

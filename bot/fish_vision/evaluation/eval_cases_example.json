@@ -1,0 +1,47 @@
+[
+  {
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Pike_fc07.jpg/1024px-Pike_fc07.jpg",
+    "caption": "",
+    "expected_object_type": "whole_fish",
+    "expected_species": "pike",
+    "description": "Classic pike photo — should identify as pike",
+    "must_reject": false,
+    "species_must_match": true
+  },
+  {
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Perca_fluviatilis_Idrolab.jpg/1024px-Perca_fluviatilis_Idrolab.jpg",
+    "caption": "",
+    "expected_object_type": "whole_fish",
+    "expected_species": "perch",
+    "description": "River perch — should identify as perch",
+    "must_reject": false,
+    "species_must_match": true
+  },
+  {
+    "image_url": "https://example.com/lure_wobbler.jpg",
+    "caption": "купил новый воблер",
+    "expected_object_type": "lure",
+    "expected_species": null,
+    "description": "Wobbler lure — must be REJECTED, not counted as fish",
+    "must_reject": true,
+    "species_must_match": false
+  },
+  {
+    "image_url": "https://example.com/fish_fillet.jpg",
+    "caption": "нарезали на филе",
+    "expected_object_type": "fish_part",
+    "expected_species": null,
+    "description": "Fish fillet / part — must be REJECTED",
+    "must_reject": true,
+    "species_must_match": false
+  },
+  {
+    "image_url": "https://example.com/small_fry.jpg",
+    "caption": "поймал малька",
+    "expected_object_type": "fry",
+    "expected_species": null,
+    "description": "Juvenile fish / fry — must be REJECTED as catch",
+    "must_reject": true,
+    "species_must_match": false
+  }
+]

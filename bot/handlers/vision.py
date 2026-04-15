@@ -1,6 +1,12 @@
 """
 Vision handlers: fish recognition, face registry, receipt parsing.
-All use GPT-4o-mini vision with structured outputs.
+
+FISH RECOGNITION: uses the dedicated two-stage FishVisionPipeline.
+  Stage A (detector) — filters lures / parts / fry / no_fish.
+  Stage B (classifier) — species ID with confidence threshold.
+  Bad detections NEVER enter catch statistics.
+
+All other vision tasks (face, receipt) use GPT-4o-mini structured outputs.
 """
 
 import json
@@ -13,106 +19,117 @@ from bot.storage.catches import save_catch, get_chat_leaderboard
 from bot.storage.database import execute, fetch_all, fetch_one
 from bot.storage.users import get_display_name
 from bot.storage.expenses import add_expense, get_active_session, create_session, is_receipt_already_added
+from bot.fish_vision.pipeline import analyze_fish_photo
 from bot.utils.logging import get_logger
 
 log = get_logger("handlers.vision")
 
 
-# ── Fish Analysis ────────────────────────────────────────────
+# ── Fish Analysis (two-stage pipeline) ─────────────────────
 
 async def handle_fish_photo(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     caption: str = "",
 ) -> None:
-    """Analyze a fish photo: species, weight, length, count."""
+    """
+    Analyze a fish photo using the dedicated two-stage FishVisionPipeline.
+
+    Stage A: filter (whole_fish / lure / fish_part / fry / no_fish)
+    Stage B: species classification (pike / taimen / grayling / whitefish / perch / unknown)
+
+    Rules:
+    - Lures, fish parts, fry → rejected, NOT saved to statistics.
+    - Uncertain detections (low confidence) → NOT saved to statistics.
+    - Only confirmed whole fish at sufficient confidence → saved.
+    - All submissions (including rejections) are stored for audit trail.
+    """
     msg = update.message
     chat_id = msg.chat_id
     user_id = msg.from_user.id if msg.from_user else 0
-    username = msg.from_user.username or "" if msg.from_user else ""
 
     if not msg.photo:
         return
 
-    # Get the largest photo
+    # Download the largest version of the photo
     photo = msg.photo[-1]
     file = await context.bot.get_file(photo.file_id)
     image_url = file.file_path  # Telegram CDN URL
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
-    # Analyze with vision
-    analysis = await vision_structured(
-        image_url=image_url,
-        prompt=f"""Проанализируй фото рыбы. Определи:
-1. Есть ли рыба на фото?
-2. Вид рыбы (на русском)
-3. Примерный вес в кг
-4. Примерная длина в см
-5. Количество рыб на фото
-6. Уверенность в определении (high/medium/low)
-7. Кто держит рыбу (если видно человека)
+    # ── Two-stage pipeline ──────────────────────────────────
+    result = await analyze_fish_photo(image_url=image_url, caption=caption)
 
-Подпись к фото: "{caption}"
-
-JSON: {{
-  "has_fish": true/false,
-  "species": "вид рыбы",
-  "weight_kg": число или null,
-  "length_cm": число или null,
-  "count": число,
-  "confidence": "high/medium/low",
-  "person_name": "имя" или null,
-  "description": "описание улова"
-}}""",
-        system="Ты — эксперт-ихтиолог. Анализируй фото рыбы. Отвечай JSON.",
+    # ── Determine angler name ───────────────────────────────
+    # Priority: name seen in photo → name in caption (already in caption) → user profile
+    person = (
+        result.person_name_in_photo
+        or await get_display_name(user_id, chat_id)
     )
 
-    if not analysis.get("has_fish", False):
-        await msg.reply_text("🐟 На этом фото я не вижу рыбу. Отправьте фото с уловом!")
-        return
-
-    # Determine who caught the fish
-    person = analysis.get("person_name") or await get_display_name(user_id, chat_id)
-    species = analysis.get("species", "Неизвестная рыба")
-    weight = analysis.get("weight_kg")
-    length = analysis.get("length_cm")
-    count = analysis.get("count", 1)
-    confidence = analysis.get("confidence", "medium")
-
-    # Save catch
+    # ── Always save the attempt (for audit) ────────────────
+    # is_valid_catch controls whether it enters the leaderboard
+    confidence_label = result.confidence_label if result.is_valid_catch else "rejected"
     await save_catch(
         chat_id=chat_id,
         user_id=user_id,
         person_name=person,
-        fish_species=species,
-        fish_count=count,
-        weight_kg=weight,
-        length_cm=length,
-        confidence=confidence,
+        fish_species=result.species_ru,
+        fish_count=result.fish_count,
+        weight_kg=result.weight_kg_estimate,
+        length_cm=result.length_cm_estimate,
+        confidence=confidence_label,
         photo_file_id=photo.file_id,
-        analysis_text=analysis.get("description", ""),
+        analysis_text=result.classification_reasoning or result.detection_reasoning,
+        # Fish-vision pipeline fields
+        object_type=result.object_type,
+        species_confidence=result.species_confidence,
+        is_valid_catch=result.is_valid_catch,
+        rejection_reason=result.rejection_reason,
     )
 
-    # Format response
-    lines = [f"🐟 <b>Улов записан!</b>\n"]
-    lines.append(f"👤 Рыбак: <b>{person}</b>")
-    lines.append(f"🐠 Вид: <b>{species}</b>")
-    if count > 1:
-        lines.append(f"🔢 Количество: {count} шт.")
-    if weight:
-        lines.append(f"⚖️ Вес: ~{weight} кг")
-    if length:
-        lines.append(f"📏 Длина: ~{length} см")
-    lines.append(f"📊 Уверенность: {confidence}")
+    # ── Rejected: not a valid catch ─────────────────────────
+    if not result.is_valid_catch:
+        log.info(
+            f"Fish photo rejected for {person}: "
+            f"type={result.object_type}, reason={result.rejection_reason}"
+        )
+        response_text = result.rejection_message or (
+            "❓ Не удалось надёжно определить рыбу на фото. "
+            "Попробуйте более чёткое фото."
+        )
+        await msg.reply_text(response_text, parse_mode=ParseMode.HTML)
+        await _save_bot_response(chat_id, f"[бот отклонил фото рыбы] {result.rejection_reason}")
+        return
 
-    if analysis.get("description"):
-        lines.append(f"\n💬 {analysis['description']}")
+    # ── Valid catch: format response ────────────────────────
+    lines = ["🐟 <b>Улов записан!</b>\n"]
+    lines.append(f"👤 Рыбак: <b>{person}</b>")
+    lines.append(f"🐠 Вид: <b>{result.species_ru}</b>")
+
+    if result.fish_count > 1:
+        lines.append(f"🔢 Количество: {result.fish_count} шт.")
+
+    if result.weight_kg_estimate:
+        lines.append(f"⚖️ Вес: ~{result.weight_kg_estimate} кг (оценка)")
+    if result.length_cm_estimate:
+        lines.append(f"📏 Длина: ~{result.length_cm_estimate} см (оценка)")
+
+    lines.append(f"📊 Уверенность: {result.confidence_label}")
+
+    # Show which features led to the species ID
+    if result.distinguishing_features and result.species_key != "unknown_fish":
+        lines.append(f"\n🔍 {result.distinguishing_features}")
+
+    if result.species_key == "unknown_fish":
+        lines.append(
+            "\n⚠️ Вид точно не определён — записано как «рыба».\n"
+            "Если знаете вид — напишите в подписи к следующему фото."
+        )
 
     response_text = "\n".join(lines)
     await msg.reply_text(response_text, parse_mode=ParseMode.HTML)
-
-    # Save bot's response to history
     await _save_bot_response(chat_id, f"[бот анализ рыбы] {response_text}")
 
 
@@ -121,17 +138,26 @@ async def handle_catch_stats(
     context: ContextTypes.DEFAULT_TYPE,
     query: str = "",
 ) -> None:
-    """Show fishing statistics and leaderboard."""
+    """Show fishing statistics and leaderboard (valid catches only)."""
     msg = update.message
     chat_id = msg.chat_id
 
+    from bot.storage.catches import get_catch_stats_for_chat
     leaderboard = await get_chat_leaderboard(chat_id)
+    stats = await get_catch_stats_for_chat(chat_id)
 
     if not leaderboard:
-        await msg.reply_text("🎣 Пока нет записей об уловах. Отправьте фото рыбы, чтобы начать!")
+        hint = ""
+        if stats["lures_caught"] > 0:
+            hint = f"\n\n⚠️ Было отклонено {stats['lures_caught']} фото приманок."
+        elif stats["rejected_total"] > 0:
+            hint = f"\n\n⚠️ Было отклонено {stats['rejected_total']} некорректных фото."
+        await msg.reply_text(
+            "🎣 Пока нет подтверждённых уловов. Отправьте фото рыбы, чтобы начать!" + hint
+        )
         return
 
-    lines = ["🏆 <b>Рейтинг рыбаков</b>\n"]
+    lines = ["🏆 <b>Рейтинг рыбаков</b> (подтверждённые уловы)\n"]
     medals = ["🥇", "🥈", "🥉"]
 
     for i, row in enumerate(leaderboard):
@@ -150,6 +176,13 @@ async def handle_catch_stats(
         if species:
             line += f"\n   Виды: {species}"
         lines.append(line)
+
+    # Show rejection stats if any
+    if stats["rejected_total"] > 0:
+        lines.append(
+            f"\n<i>ℹ️ Отклонено некорректных фото: {stats['rejected_total']} "
+            f"(не попали в рейтинг)</i>"
+        )
 
     await msg.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 

@@ -1,0 +1,37 @@
+# requirements-ml.txt — Extra dependencies for local ML model training and inference.
+#
+# These are NOT needed to run the bot with the default GPT backend.
+# Install only when you want to:
+#   - Train Stage A (YOLO): ultralytics
+#   - Train Stage B (EfficientNet): torch, torchvision
+#   - Run the local inference backends: all of the above
+#
+# ⚠️  PYTHON VERSION REQUIREMENT: Python 3.12 is required for training.
+#     PyTorch does not publish wheels for Python 3.13 on macOS x86_64.
+#     If you only have Python 3.13, install Python 3.12 via pyenv:
+#       brew install pyenv
+#       pyenv install 3.12.10
+#     Then use: ~/.pyenv/versions/3.12.10/bin/python3 -m pip install -r requirements-ml.txt
+#     And run training scripts with the same python binary.
+#
+# Installation (Python 3.12):
+#   ~/.pyenv/versions/3.12.10/bin/python3 -m pip install -r requirements-ml.txt
+#
+# Apple Silicon (MPS) users — torch is best installed via the platform wheel:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   (MPS support is included in the standard macOS wheel)
+#
+# CUDA users — replace with the correct CUDA index URL from pytorch.org.
+
+# ── Stage A (YOLO detector) ──────────────────────────────────────────────────
+ultralytics>=8.0.0
+
+# ── Stage B (EfficientNet classifier) ───────────────────────────────────────
+torch>=2.0.0,<2.3.0      # 2.2.x confirmed working on macOS x86_64 Python 3.12
+torchvision>=0.15.0,<0.18.0
+
+# ── NumPy: pin <2.0 for torch 2.2.x compatibility ───────────────────────────
+numpy<2.0
+
+# ── Image handling (required by both stages) ─────────────────────────────────
+Pillow>=10.0.0

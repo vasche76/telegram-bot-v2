@@ -1,0 +1,63 @@
+{
+  "detector": {
+    "backend": "yolov8n",
+    "trained_at": "2026-04-15T18:40:29.696162+00:00",
+    "dataset_size": {
+      "train": 341,
+      "val": 103,
+      "test": 109
+    },
+    "metrics": {
+      "mAP50": 0.9916,
+      "mAP50_95": 0.9832
+    },
+    "stage_a_labeling": {
+      "type": "bootstrap_full_image_boxes",
+      "generated_at": "2026-04-15T16:44:03.776130+00:00",
+      "split_seed": 42,
+      "split_ratios": {
+        "train": 0.7,
+        "val": 0.15,
+        "test": 0.15
+      },
+      "note": "Synthetic full-image YOLO labels. Each image assigned class_id with bbox=whole_image. Suitable for bootstrap training of image-level classifier. Replace with real bounding boxes from Roboflow/CVAT for proper object detection performance.",
+      "class_counts_raw": {
+        "whole_fish": 286,
+        "lure": 60,
+        "fish_part": 0,
+        "fry": 0,
+        "no_fish": 50
+      },
+      "split_counts": {
+        "train": 277,
+        "val": 58,
+        "test": 61
+      }
+    }
+  },
+  "classifier": {
+    "backend": "efficientnet_b0",
+    "trained_at": "2026-04-15T12:59:11.886672+00:00",
+    "dataset_size": {
+      "train": 200,
+      "val": 42,
+      "test": 44
+    },
+    "metrics": {
+      "overall_accuracy": 0.7045,
+      "per_class_accuracy": {
+        "pike": 0.5,
+        "grayling": 0.0,
+        "whitefish": 0.8333,
+        "perch": 0.875,
+        "4": 0.6667
+      },
+      "best_val_accuracy": 0.7857
+    },
+    "training": {
+      "epochs_phase1": 15,
+      "epochs_phase2": 25,
+      "split_seed": 42
+    }
+  }
+}

@@ -147,7 +147,7 @@ async def fetch_scalar(sql: str, params: tuple = ()) -> Any:
 
 # ── Schema & Migrations ─────────────────────────────────────
 
-SCHEMA_VERSION = 3  # Increment when adding migrations
+SCHEMA_VERSION = 4  # Increment when adding migrations
 
 MIGRATIONS = {
     1: """
@@ -285,6 +285,23 @@ MIGRATIONS = {
     ALTER TABLE expense_sessions ADD COLUMN participants TEXT;
     ALTER TABLE expenses ADD COLUMN photo_file_id TEXT;
     UPDATE schema_version SET version = 3;
+    """,
+
+    4: """
+    -- v4: Fish vision pipeline columns.
+    -- object_type: what Stage A detected (whole_fish/lure/fish_part/fry/no_fish).
+    -- species_confidence: numeric 0.0-1.0 from Stage B (replaces text 'high/medium/low').
+    -- is_valid_catch: 1 = reliable, 0 = rejected/uncertain (only 1 enters leaderboard).
+    -- rejection_reason: why the catch was rejected (for debugging bad photos).
+    -- fish_vision_version: which pipeline version produced this record.
+    ALTER TABLE catches ADD COLUMN object_type TEXT DEFAULT 'whole_fish';
+    ALTER TABLE catches ADD COLUMN species_confidence REAL DEFAULT 0.7;
+    ALTER TABLE catches ADD COLUMN is_valid_catch INTEGER DEFAULT 1;
+    ALTER TABLE catches ADD COLUMN rejection_reason TEXT;
+    ALTER TABLE catches ADD COLUMN fish_vision_version INTEGER DEFAULT 1;
+    -- Backfill: all existing catches are assumed valid (they were recorded pre-pipeline)
+    UPDATE catches SET is_valid_catch = 1, object_type = 'whole_fish' WHERE is_valid_catch IS NULL;
+    UPDATE schema_version SET version = 4;
     """,
 
     2: """

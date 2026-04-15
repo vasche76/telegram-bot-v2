@@ -1,0 +1,623 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "created": "2026-04-15",
+    "description": "Fish species classifier class map — Russian/Siberian rivers + European freshwater focus. All taxa verified against GBIF and iNaturalist public APIs.",
+    "total_classes": 16,
+    "gbif_api_base": "https://api.gbif.org/v1/",
+    "inat_api_base": "https://api.inaturalist.org/v1/"
+  },
+  "families": {
+    "Esocidae": {
+      "common_name": "Pikes",
+      "order": "Esociformes",
+      "notes": "Apex freshwater predators; pike is the dominant Eurasian species"
+    },
+    "Salmonidae_Hucho": {
+      "common_name": "Taimen",
+      "order": "Salmoniformes",
+      "notes": "Huchen/taimen subfamily; giant river salmonids of Siberia and Central Asia"
+    },
+    "Salmonidae_Thymallus": {
+      "common_name": "Graylings",
+      "order": "Salmoniformes",
+      "notes": "Genus-level class covering all Thymallus spp. found in Russian/Siberian rivers"
+    },
+    "Salmonidae_Coregonus": {
+      "common_name": "Whitefishes",
+      "order": "Salmoniformes",
+      "notes": "Genus-level class covering Coregonus spp.; highly diverse in Siberian lakes and rivers"
+    },
+    "Salmonidae_Salmo": {
+      "common_name": "Trout and Atlantic Salmon",
+      "order": "Salmoniformes",
+      "notes": "Brown trout and Atlantic salmon; widely stocked and naturalised in Russian rivers"
+    },
+    "Salmonidae_Oncorhynchus": {
+      "common_name": "Pacific Trout",
+      "order": "Salmoniformes",
+      "notes": "Rainbow trout; introduced and farmed extensively across Russia and Europe"
+    },
+    "Percidae": {
+      "common_name": "Perches",
+      "order": "Perciformes",
+      "notes": "European perch; ubiquitous across all Russian river systems"
+    },
+    "Cyprinidae": {
+      "common_name": "Carps and Minnows",
+      "order": "Cypriniformes",
+      "notes": "Largest freshwater fish family; dominant in European and Central Asian rivers"
+    },
+    "Siluriformes": {
+      "common_name": "Catfishes",
+      "order": "Siluriformes",
+      "notes": "Wels catfish; largest European freshwater predator"
+    }
+  },
+  "classes": {
+    "pike": {
+      "class_index": 0,
+      "canonical_name": "pike",
+      "latin_name": "Esox lucius",
+      "common_name_en": "Northern Pike",
+      "common_name_ru": "Щука",
+      "family": "Esocidae",
+      "rank": "species",
+      "status": "existing",
+      "gbif": {
+        "taxon_key": 2346633,
+        "scientific_name": "Esox lucius Linnaeus, 1758",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=2346633&country=RU"
+      },
+      "inat": {
+        "taxon_id": 55387,
+        "taxon_query": "Esox lucius",
+        "preferred_common_name": "Northern Pike",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=55387&place_id=7838"
+      },
+      "aliases": [
+        "щука",
+        "northern pike",
+        "pike",
+        "common pike",
+        "great northern pike",
+        "river wolf",
+        "esox",
+        "hecht",
+        "brochet"
+      ],
+      "region_notes": "Ubiquitous across all Russian river systems; one of the most commonly caught sport fish"
+    },
+    "taimen": {
+      "class_index": 1,
+      "canonical_name": "taimen",
+      "latin_name": "Hucho taimen",
+      "common_name_en": "Siberian Taimen",
+      "common_name_ru": "Таймень",
+      "family": "Salmonidae_Hucho",
+      "rank": "species",
+      "status": "existing",
+      "gbif": {
+        "taxon_key": 2351408,
+        "scientific_name": "Hucho taimen (Pallas, 1773)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=2351408&country=RU"
+      },
+      "inat": {
+        "taxon_id": 187548,
+        "taxon_query": "Hucho taimen",
+        "preferred_common_name": "Siberian Taimen",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=187548&place_id=7838"
+      },
+      "aliases": [
+        "таймень",
+        "taimen",
+        "siberian taimen",
+        "Mongolian taimen",
+        "huchen",
+        "river tiger",
+        "Hucho taimen",
+        "тайменье"
+      ],
+      "region_notes": "Endemic to Siberian and Far East river systems; critically endangered; requires manual image labeling due to rarity"
+    },
+    "grayling": {
+      "class_index": 2,
+      "canonical_name": "grayling",
+      "latin_name": "Thymallus spp.",
+      "common_name_en": "Grayling",
+      "common_name_ru": "Хариус",
+      "family": "Salmonidae_Thymallus",
+      "rank": "genus",
+      "representative_species": "Thymallus thymallus",
+      "covered_species": [
+        "Thymallus thymallus",
+        "Thymallus arcticus",
+        "Thymallus baicalensis",
+        "Thymallus tugarinae",
+        "Thymallus brevipinnis"
+      ],
+      "status": "existing",
+      "gbif": {
+        "taxon_key_genus": 5203981,
+        "taxon_key_representative": 5203999,
+        "scientific_name": "Thymallus thymallus (Linnaeus, 1758)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=5203981&country=RU"
+      },
+      "inat": {
+        "taxon_id": 51360,
+        "taxon_id_representative": 114127,
+        "taxon_query": "Thymallus",
+        "preferred_common_name": "European Grayling",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=51360&place_id=7838"
+      },
+      "aliases": [
+        "хариус",
+        "хариус европейский",
+        "хариус сибирский",
+        "grayling",
+        "european grayling",
+        "arctic grayling",
+        "siberian grayling",
+        "Thymallus",
+        "graeling",
+        "ombre commun"
+      ],
+      "region_notes": "Multiple species across Russia; Thymallus arcticus dominant in Siberia, T. thymallus in European Russia"
+    },
+    "whitefish": {
+      "class_index": 3,
+      "canonical_name": "whitefish",
+      "latin_name": "Coregonus spp.",
+      "common_name_en": "Whitefish",
+      "common_name_ru": "Сиг / Пелядь / Ряпушка",
+      "family": "Salmonidae_Coregonus",
+      "rank": "genus",
+      "representative_species": "Coregonus lavaretus",
+      "covered_species": [
+        "Coregonus lavaretus",
+        "Coregonus peled",
+        "Coregonus albula",
+        "Coregonus muksun",
+        "Coregonus nasus",
+        "Coregonus sardinella",
+        "Coregonus autumnalis"
+      ],
+      "status": "existing",
+      "gbif": {
+        "taxon_key_genus": 2350934,
+        "taxon_key_representative": 2351211,
+        "scientific_name": "Coregonus lavaretus (Linnaeus, 1758)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=2350934&country=RU"
+      },
+      "inat": {
+        "taxon_id": 87626,
+        "taxon_id_representative": 98461,
+        "taxon_query": "Coregonus",
+        "preferred_common_name": "Common Whitefish",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=87626&place_id=7838"
+      },
+      "aliases": [
+        "сиг",
+        "пелядь",
+        "ряпушка",
+        "муксун",
+        "нельма",
+        "чир",
+        "whitefish",
+        "common whitefish",
+        "European whitefish",
+        "peled",
+        "cisco",
+        "vendace",
+        "muksun",
+        "inconnu",
+        "Coregonus"
+      ],
+      "region_notes": "Highly diverse genus in Siberian lakes and rivers; species often visually indistinguishable — treat as genus-level class"
+    },
+    "perch": {
+      "class_index": 4,
+      "canonical_name": "perch",
+      "latin_name": "Perca fluviatilis",
+      "common_name_en": "European Perch",
+      "common_name_ru": "Окунь",
+      "family": "Percidae",
+      "rank": "species",
+      "status": "existing",
+      "gbif": {
+        "taxon_key": 8140485,
+        "scientific_name": "Perca fluviatilis Linnaeus, 1758",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=8140485&country=RU"
+      },
+      "inat": {
+        "taxon_id": 109062,
+        "taxon_query": "Perca fluviatilis",
+        "preferred_common_name": "European Perch",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=109062&place_id=7838"
+      },
+      "aliases": [
+        "окунь",
+        "речной окунь",
+        "perch",
+        "european perch",
+        "common perch",
+        "river perch",
+        "redfin perch",
+        "barsch",
+        "perche fluviatile"
+      ],
+      "region_notes": "Pan-Russian distribution; extremely common across all water bodies"
+    },
+    "brown_trout": {
+      "class_index": 5,
+      "canonical_name": "brown_trout",
+      "latin_name": "Salmo trutta",
+      "common_name_en": "Brown Trout",
+      "common_name_ru": "Кумжа / Форель",
+      "family": "Salmonidae_Salmo",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 8215487,
+        "scientific_name": "Salmo trutta Linnaeus, 1758",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=8215487&country=RU"
+      },
+      "inat": {
+        "taxon_id": 47518,
+        "taxon_query": "Salmo trutta",
+        "preferred_common_name": "Brown Trout",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=47518&place_id=7838"
+      },
+      "aliases": [
+        "кумжа",
+        "форель",
+        "ручьевая форель",
+        "озерная форель",
+        "brown trout",
+        "sea trout",
+        "river trout",
+        "brook trout (informal)",
+        "Forelle",
+        "truite",
+        "Salmo trutta fario",
+        "Salmo trutta lacustris",
+        "Salmo trutta trutta"
+      ],
+      "region_notes": "Native to European Russia, Kola Peninsula, Baltic rivers; includes sea-run (кумжа) and resident (форель) forms"
+    },
+    "rainbow_trout": {
+      "class_index": 6,
+      "canonical_name": "rainbow_trout",
+      "latin_name": "Oncorhynchus mykiss",
+      "common_name_en": "Rainbow Trout",
+      "common_name_ru": "Радужная форель",
+      "family": "Salmonidae_Oncorhynchus",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 5204019,
+        "scientific_name": "Oncorhynchus mykiss (Walbaum, 1792)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=5204019&country=RU"
+      },
+      "inat": {
+        "taxon_id": 47516,
+        "taxon_query": "Oncorhynchus mykiss",
+        "preferred_common_name": "Rainbow Trout",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=47516&place_id=7838"
+      },
+      "aliases": [
+        "радужная форель",
+        "микижа",
+        "камчатская форель",
+        "rainbow trout",
+        "steelhead",
+        "steelhead trout",
+        "mykiss",
+        "Oncorhynchus mykiss",
+        "Parasalmo mykiss",
+        "Salmo gairdneri"
+      ],
+      "region_notes": "Introduced; widely farmed across Russia; native Kamchatka population (mikizha) also exists"
+    },
+    "atlantic_salmon": {
+      "class_index": 7,
+      "canonical_name": "atlantic_salmon",
+      "latin_name": "Salmo salar",
+      "common_name_en": "Atlantic Salmon",
+      "common_name_ru": "Сёмга / Атлантический лосось",
+      "family": "Salmonidae_Salmo",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 7595433,
+        "scientific_name": "Salmo salar Linnaeus, 1758",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=7595433&country=RU"
+      },
+      "inat": {
+        "taxon_id": 48648,
+        "taxon_query": "Salmo salar",
+        "preferred_common_name": "Atlantic Salmon",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=48648&place_id=7838"
+      },
+      "aliases": [
+        "сёмга",
+        "атлантический лосось",
+        "лосось",
+        "atlantic salmon",
+        "salmon",
+        "king of fish",
+        "salar",
+        "sebago salmon",
+        "ouananiche",
+        "лосось атлантический"
+      ],
+      "region_notes": "Kola Peninsula, White Sea, Baltic and Barents Sea rivers; highly prized sport fish in northern Russia"
+    },
+    "common_carp": {
+      "class_index": 8,
+      "canonical_name": "common_carp",
+      "latin_name": "Cyprinus carpio",
+      "common_name_en": "Common Carp",
+      "common_name_ru": "Карп / Сазан",
+      "family": "Cyprinidae",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 4286975,
+        "scientific_name": "Cyprinus carpio Linnaeus, 1758",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=4286975&country=RU"
+      },
+      "inat": {
+        "taxon_id": 53911,
+        "taxon_query": "Cyprinus carpio",
+        "preferred_common_name": "European Carp",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=53911&place_id=7838"
+      },
+      "aliases": [
+        "карп",
+        "сазан",
+        "кожистый карп",
+        "зеркальный карп",
+        "common carp",
+        "european carp",
+        "wild carp",
+        "mirror carp",
+        "leather carp",
+        "koi carp",
+        "karpfen",
+        "carpe commune",
+        "Cyprinus carpio carpio",
+        "Cyprinus carpio haematopterus"
+      ],
+      "region_notes": "Wild sazan (Cyprinus carpio) native to lower Volga, Ural, Amur; domestic karp stocked nationwide"
+    },
+    "crucian_carp": {
+      "class_index": 9,
+      "canonical_name": "crucian_carp",
+      "latin_name": "Carassius carassius",
+      "common_name_en": "Crucian Carp",
+      "common_name_ru": "Карась",
+      "family": "Cyprinidae",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 2366645,
+        "scientific_name": "Carassius carassius (Linnaeus, 1758)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=2366645&country=RU"
+      },
+      "inat": {
+        "taxon_id": 96744,
+        "taxon_query": "Carassius carassius",
+        "preferred_common_name": "Crucian Carp",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=96744&place_id=7838"
+      },
+      "aliases": [
+        "карась",
+        "карась обыкновенный",
+        "золотой карась",
+        "crucian carp",
+        "crucian",
+        "karausche",
+        "carassin commun",
+        "Carassius carassius"
+      ],
+      "region_notes": "Pan-Russian distribution; extremely common in slow/still waters across all of Russia and Siberia; often confused with Prussian carp (Carassius gibelio)"
+    },
+    "bream": {
+      "class_index": 10,
+      "canonical_name": "bream",
+      "latin_name": "Abramis brama",
+      "common_name_en": "Common Bream",
+      "common_name_ru": "Лещ",
+      "family": "Cyprinidae",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 9809222,
+        "scientific_name": "Abramis brama (Linnaeus, 1758)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=9809222&country=RU"
+      },
+      "inat": {
+        "taxon_id": 92984,
+        "taxon_query": "Abramis brama",
+        "preferred_common_name": "Common Bream",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=92984&place_id=7838"
+      },
+      "aliases": [
+        "лещ",
+        "bream",
+        "common bream",
+        "freshwater bream",
+        "carp bream",
+        "bronze bream",
+        "brassen",
+        "breme",
+        "Abramis brama"
+      ],
+      "region_notes": "One of the most caught commercial fish in Russia; found across European Russia and western Siberian rivers"
+    },
+    "roach": {
+      "class_index": 11,
+      "canonical_name": "roach",
+      "latin_name": "Rutilus rutilus",
+      "common_name_en": "Common Roach",
+      "common_name_ru": "Плотва",
+      "family": "Cyprinidae",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 2359706,
+        "scientific_name": "Rutilus rutilus (Linnaeus, 1758)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=2359706&country=RU"
+      },
+      "inat": {
+        "taxon_id": 69989,
+        "taxon_query": "Rutilus rutilus",
+        "preferred_common_name": "Common Roach",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=69989&place_id=7838"
+      },
+      "aliases": [
+        "плотва",
+        "плотица",
+        "roach",
+        "common roach",
+        "redeye",
+        "rotauge",
+        "gardon",
+        "Rutilus rutilus"
+      ],
+      "region_notes": "Most widespread Cyprinid in Russia; found in virtually every river and lake system"
+    },
+    "ide": {
+      "class_index": 12,
+      "canonical_name": "ide",
+      "latin_name": "Leuciscus idus",
+      "common_name_en": "Ide",
+      "common_name_ru": "Язь",
+      "family": "Cyprinidae",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 4409643,
+        "scientific_name": "Leuciscus idus (Linnaeus, 1758)",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=4409643&country=RU"
+      },
+      "inat": {
+        "taxon_id": 104525,
+        "taxon_query": "Leuciscus idus",
+        "preferred_common_name": "Orfe",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=104525&place_id=7838"
+      },
+      "aliases": [
+        "язь",
+        "ide",
+        "orfe",
+        "golden orfe",
+        "silver orfe",
+        "aland",
+        "nerfling",
+        "Leuciscus idus",
+        "Idus idus"
+      ],
+      "region_notes": "Common across European Russia and Siberian rivers; important commercial and sport fish"
+    },
+    "wels_catfish": {
+      "class_index": 13,
+      "canonical_name": "wels_catfish",
+      "latin_name": "Silurus glanis",
+      "common_name_en": "Wels Catfish",
+      "common_name_ru": "Сом",
+      "family": "Siluriformes",
+      "rank": "species",
+      "status": "new",
+      "gbif": {
+        "taxon_key": 2337607,
+        "scientific_name": "Silurus glanis Linnaeus, 1758",
+        "match_type": "EXACT",
+        "occurrence_search": "https://api.gbif.org/v1/occurrence/search?taxonKey=2337607&country=RU"
+      },
+      "inat": {
+        "taxon_id": 112581,
+        "taxon_query": "Silurus glanis",
+        "preferred_common_name": "Wels Catfish",
+        "observation_search": "https://api.inaturalist.org/v1/observations?taxon_id=112581&place_id=7838"
+      },
+      "aliases": [
+        "сом",
+        "сом европейский",
+        "wels catfish",
+        "wels",
+        "sheatfish",
+        "european catfish",
+        "giant catfish",
+        "silure glane",
+        "Waller",
+        "Silurus glanis"
+      ],
+      "region_notes": "Largest European freshwater fish; found in large rivers and reservoirs across European Russia and into western Siberia"
+    },
+    "unknown_fish": {
+      "class_index": 14,
+      "canonical_name": "unknown_fish",
+      "latin_name": null,
+      "common_name_en": "Unknown Fish",
+      "common_name_ru": "Неизвестная рыба",
+      "family": null,
+      "rank": null,
+      "status": "existing",
+      "gbif": null,
+      "inat": null,
+      "aliases": [
+        "unknown",
+        "неизвестно",
+        "рыба",
+        "fish",
+        "other fish",
+        "unidentified",
+        "неопределённая рыба"
+      ],
+      "region_notes": "Fallback class for fish that do not match any other class. Used during inference when confidence is below threshold."
+    }
+  },
+  "class_index_to_name": {
+    "0": "pike",
+    "1": "taimen",
+    "2": "grayling",
+    "3": "whitefish",
+    "4": "perch",
+    "5": "brown_trout",
+    "6": "rainbow_trout",
+    "7": "atlantic_salmon",
+    "8": "common_carp",
+    "9": "crucian_carp",
+    "10": "bream",
+    "11": "roach",
+    "12": "ide",
+    "13": "wels_catfish",
+    "14": "unknown_fish"
+  },
+  "gbif_query_templates": {
+    "by_taxon_key": "https://api.gbif.org/v1/occurrence/search?taxonKey={taxon_key}&country=RU&hasCoordinate=true&mediaType=StillImage&limit=300",
+    "by_taxon_key_global": "https://api.gbif.org/v1/occurrence/search?taxonKey={taxon_key}&hasCoordinate=true&mediaType=StillImage&limit=300",
+    "download_media": "https://api.gbif.org/v1/occurrence/{occurrenceKey}/media"
+  },
+  "inat_query_templates": {
+    "by_taxon_id_russia": "https://api.inaturalist.org/v1/observations?taxon_id={taxon_id}&place_id=7838&photos=true&quality_grade=research&per_page=200",
+    "by_taxon_id_global": "https://api.inaturalist.org/v1/observations?taxon_id={taxon_id}&photos=true&quality_grade=research&per_page=200",
+    "inat_place_id_russia": 7838,
+    "inat_place_id_siberia": 13442
+  }
+}

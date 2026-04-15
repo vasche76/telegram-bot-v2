@@ -1,0 +1,238 @@
+{
+  "_schema_version": "2.0",
+  "_description": "Machine-readable registry of all external data sources used in the fish dataset. Each source has its license, usage constraints, and which classes it covers.",
+  "_generated": "2026-04-15",
+  "_updated": "2026-04-15",
+  "sources": {
+    "inaturalist_api": {
+      "name": "iNaturalist Public API",
+      "url": "https://api.inaturalist.org/v1/observations",
+      "owner": "iNaturalist / California Academy of Sciences",
+      "license_filter": ["cc0", "cc-by", "cc-by-sa"],
+      "commercial_use": true,
+      "redistribution": "attribution required for cc-by",
+      "training_use": "clearly_allowed",
+      "access_method": "public_api_no_auth",
+      "rate_limit": "100 requests/minute (unauthenticated)",
+      "quality_filter": "quality_grade=research",
+      "download_status": "auto",
+      "script": "scripts/fetch_inaturalist.py",
+      "covers_stages": ["stage_b"],
+      "covers_classes": {
+        "stage_b": ["pike", "taimen", "grayling", "whitefish", "perch"],
+        "stage_a_raw": ["whole_fish", "no_fish"]
+      },
+      "target_taxa": {
+        "pike":     {"latin": "Esox lucius",        "taxon_query": "Esox lucius"},
+        "taimen":   {"latin": "Hucho taimen",        "taxon_query": "Hucho taimen"},
+        "grayling": {"latin": "Thymallus",           "taxon_query": "Thymallus"},
+        "whitefish":{"latin": "Coregonus",           "taxon_query": "Coregonus"},
+        "perch":    {"latin": "Perca fluviatilis",   "taxon_query": "Perca fluviatilis"}
+      },
+      "attribution_required": true,
+      "attribution_format": "Photo by {user} via iNaturalist, CC {license}",
+      "provenance_tracking": "PROVENANCE.json per species directory"
+    },
+
+    "gbif_api": {
+      "name": "GBIF — Global Biodiversity Information Facility",
+      "url": "https://api.gbif.org/v1/occurrence/search",
+      "owner": "GBIF Secretariat (content from global publishing institutions)",
+      "license_filter": ["CC0_1_0", "CC_BY_4_0"],
+      "commercial_use": true,
+      "redistribution": "attribution required for CC-BY",
+      "training_use": "clearly_allowed",
+      "access_method": "public_api_no_auth",
+      "rate_limit": "~600 requests/minute (unauthenticated)",
+      "quality_filter": "hasCoordinate=true&mediaType=StillImage",
+      "download_status": "auto",
+      "script": "scripts/fetch_gbif.py",
+      "covers_stages": ["stage_b"],
+      "covers_classes": {
+        "stage_b": [
+          "pike", "taimen", "grayling", "whitefish", "perch",
+          "brown_trout", "rainbow_trout", "atlantic_salmon",
+          "common_carp", "crucian_carp", "bream", "roach", "ide",
+          "wels_catfish"
+        ],
+        "stage_a_raw": ["whole_fish"]
+      },
+      "target_taxa": {
+        "pike":           {"latin": "Esox lucius",          "taxon_key": 2346633},
+        "taimen":         {"latin": "Hucho taimen",          "taxon_key": 2351408},
+        "grayling":       {"latin": "Thymallus",             "taxon_key": 5203981, "rank": "genus"},
+        "whitefish":      {"latin": "Coregonus",             "taxon_key": 2350934, "rank": "genus"},
+        "perch":          {"latin": "Perca fluviatilis",     "taxon_key": 8140485},
+        "brown_trout":    {"latin": "Salmo trutta",          "taxon_key": 8215487},
+        "rainbow_trout":  {"latin": "Oncorhynchus mykiss",   "taxon_key": 5204019},
+        "atlantic_salmon":{"latin": "Salmo salar",           "taxon_key": 7595433},
+        "common_carp":    {"latin": "Cyprinus carpio",       "taxon_key": 4286975},
+        "crucian_carp":   {"latin": "Carassius carassius",   "taxon_key": 2366645},
+        "bream":          {"latin": "Abramis brama",         "taxon_key": 9809222},
+        "roach":          {"latin": "Rutilus rutilus",       "taxon_key": 2359706},
+        "ide":            {"latin": "Leuciscus idus",        "taxon_key": 4409643},
+        "wels_catfish":   {"latin": "Silurus glanis",        "taxon_key": 2337607}
+      },
+      "attribution_required": true,
+      "attribution_format": "Via GBIF, {license}, occurrence #{occurrenceKey}",
+      "provenance_tracking": "PROVENANCE.json per species directory",
+      "notes": "GBIF multimedia images have per-record licenses. Script filters to CC0_1_0 and CC_BY_4_0 only. Complements iNaturalist — especially for species with few iNat research-grade observations."
+    },
+
+    "fishnet_2023": {
+      "name": "FishNet (ICCV 2023)",
+      "url": "https://fishnet-2023.github.io/",
+      "github": "https://github.com/faixan-khan/FishNet",
+      "owner": "Faixan Khan et al., ICCV 2023",
+      "license": "CC-BY-SA 4.0 (website); dataset license unspecified in paper",
+      "commercial_use": "unclear",
+      "training_use": "permitted_with_citation",
+      "access_method": "google_drive_requires_login",
+      "download_status": "manual",
+      "script": null,
+      "covers_stages": ["stage_b"],
+      "covers_classes": {
+        "stage_b": ["many_species"]
+      },
+      "stats": {"images": 94532, "species": 17357},
+      "manual_instructions": "Download from Google Drive link on https://fishnet-2023.github.io/. After download, run: python3 scripts/ingest_external_dataset.py --source ~/Downloads/FishNet/ --format class_folders --stage b --class-map <species>:<canonical_name>",
+      "blocker": "Google Drive requires Google account login. Cannot be auto-downloaded.",
+      "verdict": "SKIP_auto — manual download only"
+    },
+
+    "deepfish": {
+      "name": "DeepFish — Habitat-based fish counting dataset",
+      "url": "https://alzayats.github.io/DeepFish/",
+      "github": "https://github.com/alzayats/DeepFish",
+      "data_repo": "https://data.qld.edu.au/article/c0d00059-dfcb-49f5-98ba-d0b6e27ac7ce",
+      "owner": "James Cook University (Alzayats et al.)",
+      "license_code": "MIT",
+      "license_data": "CC-BY 4.0",
+      "commercial_use": true,
+      "training_use": "clearly_allowed",
+      "access_method": "direct_download_no_login",
+      "download_status": "manual",
+      "script": "scripts/fetch_deepfish.py",
+      "covers_stages": ["stage_a"],
+      "covers_classes": {
+        "stage_a_raw": ["whole_fish", "no_fish"]
+      },
+      "stats": {"images": 39766, "habitats": 20, "species": "tropical_australian"},
+      "manual_instructions": "Run: python3 scripts/fetch_deepfish.py --dest data/fish_dataset/stage_a/raw/",
+      "notes": "Tropical Australian fish — limited species overlap with Russian freshwater targets. Useful for Stage A whole_fish/no_fish negatives. Images are segmentation masks + raw frames.",
+      "verdict": "USABLE — Stage A negative class expansion (whole_fish + no_fish backgrounds)"
+    },
+
+    "wikimedia_commons": {
+      "name": "Wikimedia Commons (MediaWiki API)",
+      "url": "https://commons.wikimedia.org/w/api.php",
+      "owner": "Wikimedia Foundation (content by contributors)",
+      "license_filter": ["CC0", "CC-BY", "CC-BY-SA", "Public Domain"],
+      "commercial_use": true,
+      "redistribution": "attribution required for CC-BY",
+      "training_use": "clearly_allowed",
+      "access_method": "public_api_no_auth",
+      "download_status": "auto",
+      "script": "scripts/fetch_wikimedia_lures.py",
+      "covers_stages": ["stage_a"],
+      "covers_classes": {
+        "stage_a_raw": ["lure", "whole_fish"]
+      },
+      "search_queries": {
+        "lure": ["fishing lure", "fishing wobbler", "fishing spinner", "fishing spoon bait", "fishing jig", "wobbler lure"],
+        "whole_fish": ["pike fish caught", "perch fish caught", "grayling fish", "fishing catch"]
+      },
+      "attribution_required": true,
+      "attribution_format": "Via Wikimedia Commons, {license}, {attribution}",
+      "provenance_tracking": "PROVENANCE.json per class directory"
+    },
+
+    "open_images_v7": {
+      "name": "Open Images V7 (Google)",
+      "url": "https://storage.googleapis.com/openimages/web/index.html",
+      "owner": "Google LLC",
+      "license": "CC BY 4.0 (annotations); individual CC licenses per image",
+      "commercial_use": true,
+      "training_use": "clearly_allowed",
+      "access_method": "official_download_tool_fiftyone",
+      "download_status": "deferred",
+      "covers_stages": ["stage_a"],
+      "covers_classes": {
+        "stage_a_labeled": ["whole_fish"]
+      },
+      "oi_classes": ["Fish", "Fishing rod"],
+      "status": "deferred_phase2",
+      "blocker": "requires fiftyone package"
+    },
+
+    "owner_photos": {
+      "name": "Owner Personal Fishing Photos",
+      "url": "local",
+      "license": "owner_proprietary",
+      "commercial_use": true,
+      "training_use": "clearly_allowed",
+      "access_method": "direct_upload",
+      "download_status": "manual",
+      "covers_stages": ["stage_a", "stage_b"],
+      "covers_classes": {
+        "stage_a_raw": ["whole_fish", "lure", "fish_part", "fry", "no_fish"],
+        "stage_b": ["pike", "taimen", "grayling", "whitefish", "perch"]
+      },
+      "priority": "highest",
+      "note": "Owner photos are ground truth for the target fishing style and geography. Fine-tune on these as primary data when available. taimen class REQUIRES owner photos — no sufficient CC source exists.",
+      "directory": "data/fish_dataset/owner/"
+    }
+  },
+
+  "dataset_summary": {
+    "auto_download": ["inaturalist_api", "gbif_api", "wikimedia_commons"],
+    "manual_download": ["fishnet_2023", "deepfish", "owner_photos"],
+    "skipped_login_required": ["kaggle"],
+    "deferred": ["open_images_v7"]
+  },
+
+  "class_source_matrix": {
+    "stage_a": {
+      "whole_fish":  ["inaturalist_api", "gbif_api", "wikimedia_commons", "deepfish", "open_images_v7", "owner_photos"],
+      "lure":        ["wikimedia_commons", "owner_photos"],
+      "fish_part":   ["owner_photos"],
+      "fry":         ["inaturalist_api", "owner_photos"],
+      "no_fish":     ["inaturalist_api", "gbif_api", "deepfish", "wikimedia_commons", "owner_photos"]
+    },
+    "stage_b": {
+      "pike":           ["inaturalist_api", "gbif_api", "wikimedia_commons", "owner_photos"],
+      "taimen":         ["inaturalist_api", "gbif_api", "owner_photos"],
+      "grayling":       ["inaturalist_api", "gbif_api", "wikimedia_commons", "owner_photos"],
+      "whitefish":      ["inaturalist_api", "gbif_api", "owner_photos"],
+      "perch":          ["inaturalist_api", "gbif_api", "wikimedia_commons", "owner_photos"],
+      "brown_trout":    ["inaturalist_api", "gbif_api"],
+      "rainbow_trout":  ["inaturalist_api", "gbif_api"],
+      "atlantic_salmon":["inaturalist_api", "gbif_api"],
+      "common_carp":    ["inaturalist_api", "gbif_api"],
+      "crucian_carp":   ["inaturalist_api", "gbif_api"],
+      "bream":          ["inaturalist_api", "gbif_api"],
+      "roach":          ["inaturalist_api", "gbif_api"],
+      "ide":            ["inaturalist_api", "gbif_api"],
+      "wels_catfish":   ["inaturalist_api", "gbif_api"],
+      "unknown_fish":   ["inaturalist_api", "owner_photos"]
+    }
+  },
+
+  "coverage_gaps": [
+    {
+      "class": "fish_part",
+      "gap": "No external CC-licensed source for partial fish photos",
+      "mitigation": "Owner photos only; rely on GPT Stage A for this class until owner data added"
+    },
+    {
+      "class": "fry",
+      "gap": "Limited iNaturalist coverage; hard to filter by size",
+      "mitigation": "Use iNaturalist juvenile observations; owner photos priority"
+    },
+    {
+      "class": "taimen",
+      "gap": "Very few iNaturalist/GBIF observations (rare species, Siberia)",
+      "mitigation": "Lower training count accepted; unknown_fish fallback active. Owner photos required for quality training."
+    }
+  ]
+}

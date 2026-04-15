@@ -1,0 +1,1 @@
+"""Fish vision evaluation framework."""
