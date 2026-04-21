@@ -57,6 +57,7 @@ from bot.storage.messages import save_message
 from bot.handlers.messages import (
     handle_text_message,
     set_bot_username,
+    set_bot_id,
     _is_mention,
     _bot_username,
 )
@@ -216,7 +217,8 @@ async def post_init(app) -> None:
 
     me = await app.bot.get_me()
     set_bot_username(me.username)
-    log.info(f"Bot started: @{me.username}")
+    set_bot_id(me.id)
+    log.info(f"Bot identity confirmed: @{me.username} (id={me.id})")
 
     set_health_refs(
         get_last_update=lambda: health.last_update,

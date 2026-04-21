@@ -4,6 +4,7 @@ All text messages pass through here.
 """
 
 import re
+from typing import Optional
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatType, ParseMode
@@ -18,8 +19,10 @@ from bot.utils.logging import get_logger, set_correlation_id
 
 log = get_logger("handlers.messages")
 
-# Bot username (set during startup)
+# Bot username and ID (set during startup via set_bot_username / set_bot_id)
 _bot_username: str = ""
+_bot_id: Optional[int] = None
+_bot_id_warned: bool = False   # emit the "bot_id not set" warning only once per process
 
 
 def set_bot_username(username: str) -> None:
@@ -29,23 +32,41 @@ def set_bot_username(username: str) -> None:
     set_response_bot_username(username.lower())
 
 
+def set_bot_id(bot_id: int) -> None:
+    global _bot_id, _bot_id_warned
+    _bot_id = bot_id
+    _bot_id_warned = False   # reset warning flag if bot_id is (re)set
+
+
 def _is_mention(text: str, entities: list) -> bool:
-    """Check if the bot is mentioned in the message."""
+    """Check if the bot is mentioned using Telegram entities (entity-based, case-insensitive).
+
+    Accepts:
+      - MessageEntityMention (@username): case-insensitive match against _bot_username
+      - MessageEntityTextMention (user object): match against _bot_id
+
+    No substring/regex fallback — entity-only detection avoids false positives.
+    """
     if not _bot_username:
         return False
 
-    # Check @mention entities
     for entity in (entities or []):
         if entity.type == "mention":
-            mention = text[entity.offset:entity.offset + entity.length].lower()
-            if _bot_username in mention:
+            mention = text[entity.offset:entity.offset + entity.length]
+            if mention.lower() == f"@{_bot_username}".lower():
                 return True
         elif entity.type == "text_mention":
-            return True
-
-    # Check text for bot username
-    if f"@{_bot_username}" in text.lower():
-        return True
+            if _bot_id is None:
+                global _bot_id_warned
+                if not _bot_id_warned:
+                    log.warning(
+                        "_bot_id not initialized — cannot verify text_mention entity; "
+                        "messages will be ignored until set_bot_id is called at startup"
+                    )
+                    _bot_id_warned = True
+                continue
+            if entity.user and entity.user.id == _bot_id:
+                return True
 
     return False
 
@@ -116,16 +137,27 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Step 4: Check if bot is mentioned (or private chat)
     is_private = msg.chat.type == ChatType.PRIVATE
     is_mentioned = _is_mention(text, msg.entities)
-    is_reply_to_bot = (
-        msg.reply_to_message
-        and msg.reply_to_message.from_user
-        and msg.reply_to_message.from_user.is_bot
-        and _bot_username
-        and msg.reply_to_message.from_user.username
-        and msg.reply_to_message.from_user.username.lower() == _bot_username
+    _reply_user = msg.reply_to_message.from_user if msg.reply_to_message else None
+    is_reply_to_bot = bool(
+        _reply_user
+        and _reply_user.is_bot
+        and (
+            # Primary: ID-based (reliable, works regardless of username changes)
+            (_bot_id is not None and _reply_user.id == _bot_id)
+            # Fallback: username-based (used when _bot_id not yet set)
+            or (
+                _bot_username
+                and _reply_user.username
+                and _reply_user.username.lower() == _bot_username
+            )
+        )
     )
 
     if not (is_private or is_mentioned or is_reply_to_bot):
+        log.debug(
+            f"Ignoring message from {username!r} in chat {chat_id}: "
+            "not private chat and not explicitly mentioned by entity"
+        )
         return  # Silent recording only
 
     # Step 5: Process the mention

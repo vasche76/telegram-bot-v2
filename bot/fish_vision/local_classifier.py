@@ -90,6 +90,54 @@ def _detect_model_variant() -> str:
     return "b0"
 
 
+MIN_TRAIN_IMAGES = 15
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff"}
+
+
+class InactiveClassFallbackError(RuntimeError):
+    """Raised when inference lands on a class with insufficient training data.
+
+    Signals the caller (classifier.py) to try the GPT fallback before
+    returning unknown_fish — gives a better result when local data is sparse.
+    """
+    def __init__(self, species_key: str, confidence: float) -> None:
+        super().__init__(f"inactive class '{species_key}' (conf={confidence:.2f})")
+        self.species_key = species_key
+        self.confidence = confidence
+
+
+def _compute_inactive_classes(species_classes: list[str]) -> set[str]:
+    """Return set of class names that have fewer than MIN_TRAIN_IMAGES training images.
+
+    These classes are present in the model taxonomy but lack sufficient data —
+    any inference result pointing to them is unreliable and should fall back to
+    unknown_fish rather than being returned as a confident prediction.
+    """
+    from pathlib import Path
+
+    # Derive stage_b dir from the known models dir path
+    stage_b_dir = Path(CLASS_NAMES_B_PATH).parent.parent / "fish_dataset" / "stage_b"
+
+    inactive: set[str] = set()
+    for name in species_classes:
+        if name == "unknown_fish":
+            continue
+        folder = stage_b_dir / name
+        if not folder.exists():
+            count = 0
+        else:
+            count = sum(1 for p in folder.iterdir() if p.suffix.lower() in _IMAGE_EXTS)
+        if count < MIN_TRAIN_IMAGES:
+            log.warning(
+                f"Inference safety: class '{name}' has only {count} training images "
+                f"(< {MIN_TRAIN_IMAGES} minimum) — marked inactive; predictions will "
+                "fall back to unknown_fish"
+            )
+            inactive.add(name)
+
+    return inactive
+
+
 def _load_species_classes() -> list[str]:
     """Load species class list from class_names_b.json (written by train_stage_b.py).
 
@@ -120,6 +168,7 @@ class LocalEfficientNetClassifier:
     _model = None   # torch.nn.Module or None if not yet loaded
     _transforms = None  # torchvision transforms or None if not yet loaded
     _species_classes: list[str] = []  # populated at load time from class_names_b.json
+    _inactive_classes: set[str] = set()  # classes with < MIN_TRAIN_IMAGES — unsafe for inference
 
     @classmethod
     def get_instance(cls) -> "LocalEfficientNetClassifier":
@@ -213,8 +262,14 @@ class LocalEfficientNetClassifier:
         ])
 
         log.info(f"EfficientNet-{model_variant.upper()} model loaded successfully")
-        # Store species_classes on the instance so classify() can use it
+        # Store species_classes and inactive set on the singleton
         self.__class__._species_classes = species_classes
+        self.__class__._inactive_classes = _compute_inactive_classes(species_classes)
+        if self.__class__._inactive_classes:
+            log.warning(
+                f"Inactive classes (will fall back to unknown_fish during inference): "
+                f"{sorted(self.__class__._inactive_classes)}"
+            )
         return model, val_transforms
 
     async def classify(
@@ -278,6 +333,14 @@ class LocalEfficientNetClassifier:
                 f"(conf={confidence:.2f} < threshold={SPECIES_CONFIDENCE_THRESHOLD})"
             )
             species_key = "unknown_fish"
+
+        # Inference safety: inactive classes (insufficient training data) → GPT fallback
+        if species_key in self._inactive_classes:
+            log.warning(
+                f"Local classifier: predicted class '{species_key}' is inactive "
+                f"(insufficient training data) — raising InactiveClassFallbackError for GPT retry"
+            )
+            raise InactiveClassFallbackError(species_key, confidence)
 
         log.info(
             f"Local classifier: {species_key} (conf={confidence:.2f})"

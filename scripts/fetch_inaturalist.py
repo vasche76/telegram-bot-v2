@@ -104,6 +104,16 @@ SPECIES_CONFIG = {
         "label_ru": "Окунь",
         "notes": "European perch. Very common, many iNaturalist observations.",
     },
+    "wels_catfish": {
+        "taxon_name": "Silurus glanis",
+        "label_ru": "Сом",
+        "notes": "Wels catfish. Large predator; moderately documented on iNaturalist.",
+    },
+    "zander": {
+        "taxon_name": "Sander lucioperca",
+        "label_ru": "Судак",
+        "notes": "Common European freshwater predator. Well documented on iNaturalist.",
+    },
 }
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}

@@ -158,13 +158,18 @@ SPECIES_REGISTRY: dict[str, dict] = {
         "latin": "Silurus glanis",
         "rank": "species",
     },
+    "zander": {
+        "taxon_key": 2376685,
+        "latin": "Sander lucioperca",
+        "rank": "species",
+    },
 }
 
 # New-taxonomy species (not in the original 5)
 NEW_SPECIES = {
     "brown_trout", "rainbow_trout", "atlantic_salmon",
     "common_carp", "crucian_carp", "bream", "roach", "ide",
-    "wels_catfish",
+    "wels_catfish", "zander",
 }
 
 

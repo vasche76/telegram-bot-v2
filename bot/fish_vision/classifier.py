@@ -2,7 +2,7 @@
 Stage B — Fish Species Classifier.
 
 Only runs when Stage A confirms a whole_fish is present.
-Classifies into one of 15 species/family classes or unknown_fish.
+Classifies into one of 16 species/family classes (zander added as class 15) or unknown_fish.
 
 Target species (Russian/Siberian freshwater + European):
   Original:
@@ -51,7 +51,7 @@ from bot.utils.logging import get_logger
 log = get_logger("fish_vision.classifier")
 
 # Supported species (canonical English key → Russian display name)
-# Expanded to 15 classes: original 5 + Salmonidae + Cyprinidae + Siluriformes + fallback
+# Expanded to 16 classes: original 5 + Salmonidae + Cyprinidae + Siluriformes + Percidae_Sander + fallback
 SPECIES_MAP = {
     # Original 5
     "pike":            "Щука",
@@ -71,6 +71,8 @@ SPECIES_MAP = {
     "ide":             "Язь",
     # New Siluriformes
     "wels_catfish":    "Сом",
+    # New Percidae (Sander)
+    "zander":          "Судак",
     # Fallback
     "unknown_fish":    "Рыба (вид не определён)",
 }
@@ -218,7 +220,7 @@ _ALL_SPECIES_LIST = (
     "pike | taimen | grayling | whitefish | perch | "
     "brown_trout | rainbow_trout | atlantic_salmon | "
     "common_carp | crucian_carp | bream | roach | ide | "
-    "wels_catfish | unknown_fish"
+    "wels_catfish | zander | unknown_fish"
 )
 
 _CLASSIFICATION_PROMPT = f"""\
@@ -359,9 +361,17 @@ async def classify_fish_species(
     if CLASSIFIER_BACKEND == "local":
         log.info("Stage B: using local EfficientNet backend")
         try:
-            from bot.fish_vision.local_classifier import LocalEfficientNetClassifier
+            from bot.fish_vision.local_classifier import (
+                LocalEfficientNetClassifier,
+                InactiveClassFallbackError,
+            )
             classifier = LocalEfficientNetClassifier.get_instance()
             return await classifier.classify(image_url, caption)
+        except InactiveClassFallbackError as e:
+            log.warning(
+                f"Local classifier hit inactive class ({e}) — trying GPT fallback"
+            )
+            # Fall through to GPT below; GPT's own error handler returns unknown_fish on failure
         except Exception as e:
             log.warning(f"Local classifier failed ({e}), falling back to GPT")
 

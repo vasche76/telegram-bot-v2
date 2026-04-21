@@ -2,7 +2,7 @@
 """
 train_stage_b.py — EfficientNet fish species classifier training script (Stage B)
 
-Stage B classifies fish detected by Stage A into 15 species/family classes:
+Stage B classifies fish detected by Stage A into 16 species/family classes (zander added as class 15):
 
   ORIGINAL (6):
   0: pike           — щука           (Esox lucius)
@@ -25,6 +25,9 @@ Stage B classifies fish detected by Stage A into 15 species/family classes:
 
   NEW — Siluriformes (1):
   13: wels_catfish  — сом            (Silurus glanis)
+
+  NEW — Percidae (1):
+  15: zander        — судак           (Sander lucioperca)
 
   FALLBACK (1):
   14: unknown_fish  — неизвестная рыба
@@ -92,11 +95,13 @@ CLASS_NAMES_B = {
     "12": "ide",
     "13": "wels_catfish",
     "14": "unknown_fish",
+    "15": "zander",
 }
 # Reverse lookup: folder name -> index
 NAME_TO_IDX = {v: int(k) for k, v in CLASS_NAMES_B.items()}
 
 MIN_IMAGES_PER_CLASS = 15
+SOFT_WARN_IMAGES = 50   # soft underfit warning threshold
 SPLIT_SEED = 42
 TRAIN_RATIO = 0.70
 VAL_RATIO = 0.15
@@ -168,21 +173,46 @@ def check_stage_b_data() -> dict[str, list[Path]]:
         imgs = _images_in(folder)
         species_images[name] = imgs
 
-    # Count classes with enough images
+    # Retrain blocker: count truly empty classes (0 images, folder missing or empty).
+    # unknown_fish is excluded — it is the fallback class and never has training images.
+    all_expected = set(CLASS_NAMES_B.values())
+    empty_classes = sorted(
+        name for name in all_expected
+        if name != "unknown_fish"
+        and (name not in species_images or len(species_images.get(name, [])) == 0)
+    )
+    if len(empty_classes) > 2:
+        _fail("Too many empty classes — dataset not ready")
+        _fail(f"Empty classes ({len(empty_classes)}): {', '.join(empty_classes)}")
+        _fail("Collect training images for the empty classes before retraining.")
+        sys.exit(1)
+
+    # Per-class summary with explicit warnings for weak/empty classes
+    for name, imgs in sorted(species_images.items()):
+        n = len(imgs)
+        if n == 0:
+            _warn(f"Class '{name}' has 0 images — will be skipped from training set")
+        elif n < MIN_IMAGES_PER_CLASS:
+            _warn(
+                f"Class '{name}' has insufficient data "
+                f"({n} images < {MIN_IMAGES_PER_CLASS} minimum) — will be skipped from training set"
+            )
+        elif n < SOFT_WARN_IMAGES:
+            _warn(
+                f"Class '{name}' has only {n} images "
+                f"(< {SOFT_WARN_IMAGES} soft minimum) — underfit risk"
+            )
+        else:
+            _info(f"  {name:<15}: {n:>4} images  [OK]")
+
+    # Minimum viability check
     ok_classes = [n for n, imgs in species_images.items() if len(imgs) >= MIN_IMAGES_PER_CLASS]
     if len(ok_classes) < 2:
         _fail(
             f"Need at least 2 species with >= {MIN_IMAGES_PER_CLASS} images each. "
             f"Found: {len(ok_classes)}."
         )
-        for name, imgs in species_images.items():
-            status = "OK" if len(imgs) >= MIN_IMAGES_PER_CLASS else "TOO FEW"
-            print(f"  [{status}] {name}: {len(imgs)} images", file=sys.stderr)
         sys.exit(1)
-
-    for name, imgs in sorted(species_images.items()):
-        status = "OK" if len(imgs) >= MIN_IMAGES_PER_CLASS else "WARN(too few)"
-        _info(f"  {name:<15}: {len(imgs):>4} images  [{status}]")
 
     return species_images
 
