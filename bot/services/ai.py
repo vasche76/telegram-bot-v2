@@ -3,6 +3,7 @@ OpenAI API service layer.
 Uses structured outputs (JSON mode) for all extraction tasks.
 """
 
+import asyncio
 import json
 import httpx
 from typing import Optional, Any
@@ -13,6 +14,13 @@ from bot.utils.logging import get_logger
 log = get_logger("services.ai")
 
 _client: Optional[httpx.AsyncClient] = None
+
+_MAX_RETRIES = 3
+_RETRYABLE_NETWORK_ERRORS = (
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.RemoteProtocolError,
+)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -47,25 +55,45 @@ async def chat_completion(
     if json_mode:
         body["response_format"] = {"type": "json_object"}
 
-    try:
-        resp = await client.post("/chat/completions", json=body)
-        resp.raise_for_status()
-        data = resp.json()
-        choices = data.get("choices")
-        if not choices:
-            log.error(f"OpenAI returned no choices: {data}")
-            raise ValueError("OpenAI returned empty choices list")
-        content = choices[0].get("message", {}).get("content")
-        if content is None:
-            log.error(f"OpenAI choice has no content: {choices[0]}")
-            raise ValueError("OpenAI message content is None")
-        return content
-    except httpx.HTTPStatusError as e:
-        log.error(f"OpenAI API error: {e.response.status_code} - {e.response.text[:200]}")
-        raise
-    except Exception as e:
-        log.error(f"OpenAI request failed: {e}")
-        raise
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            resp = await client.post("/chat/completions", json=body)
+            resp.raise_for_status()
+            data = resp.json()
+            choices = data.get("choices")
+            if not choices:
+                log.error(f"OpenAI returned no choices: {data}")
+                raise ValueError("OpenAI returned empty choices list")
+            content = choices[0].get("message", {}).get("content")
+            if content is None:
+                log.error(f"OpenAI choice has no content: {choices[0]}")
+                raise ValueError("OpenAI message content is None")
+            return content
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < _MAX_RETRIES:
+                delay = 2 ** (attempt - 1)
+                log.warning(
+                    f"OpenAI 429 rate-limited (attempt {attempt}/{_MAX_RETRIES}), "
+                    f"retrying in {delay}s"
+                )
+                await asyncio.sleep(delay)
+                continue
+            log.error(f"OpenAI API error: {e.response.status_code} - {e.response.text[:200]}")
+            raise
+        except _RETRYABLE_NETWORK_ERRORS as e:
+            if attempt < _MAX_RETRIES:
+                delay = 2 ** (attempt - 1)
+                log.warning(
+                    f"OpenAI request failed ({type(e).__name__}, attempt {attempt}/{_MAX_RETRIES}), "
+                    f"retrying in {delay}s"
+                )
+                await asyncio.sleep(delay)
+                continue
+            log.error(f"OpenAI request failed: {e}")
+            raise
+        except Exception as e:
+            log.error(f"OpenAI request failed: {e}")
+            raise
 
 
 async def structured_extraction(
