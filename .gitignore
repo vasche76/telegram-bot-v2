@@ -39,3 +39,5 @@ data/eval_cases/**/*.webp
 # Root / external model weights
 yolov8n.pt
 *.cache
+.compound-engineering/*.local.yaml
+.context/

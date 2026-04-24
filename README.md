@@ -129,3 +129,18 @@ python3 migrate_old_db.py /путь/к/старому/chat_history.db
 | Расходы | Базовый | Сессии + чеки + долги |
 | Тесты | Нет | Готово к тестированию |
 | Docker | Базовый | Compose + volumes |
+
+## Development Workflow
+
+This repository is maintained with Claude Code and the Compound Engineering Plugin.
+
+For complex or risky work, use:
+- `/ce-code-review` — audit without changes
+- `/ce-brainstorm` — explore options
+- `/ce-plan` — prepare implementation plan
+- `/ce-work` — execute planned changes
+- `/ce-compound` — save reusable project knowledge
+
+Before modifying production-sensitive areas, run a read-only audit first.
+
+See: `docs/DEVELOPMENT_WORKFLOW.md`
