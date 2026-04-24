@@ -75,6 +75,17 @@ async def save_catch(
     return cursor.lastrowid
 
 
+async def is_fish_photo_already_saved(chat_id: int, photo_file_id: Optional[str]) -> bool:
+    """Return True if this photo_file_id was already saved as a valid catch for this chat."""
+    if not photo_file_id:
+        return False
+    row = await fetch_one(
+        "SELECT 1 FROM catches WHERE chat_id = ? AND photo_file_id = ? AND is_valid_catch = 1 LIMIT 1",
+        (chat_id, photo_file_id),
+    )
+    return row is not None
+
+
 async def get_catches_by_person(
     chat_id: int,
     person_name: str,

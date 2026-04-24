@@ -49,7 +49,7 @@ from bot.storage.expenses import (
     set_session_participants, get_session_participants,
     is_receipt_already_added,
 )
-from bot.storage.catches import save_catch, get_chat_leaderboard
+from bot.storage.catches import save_catch, get_chat_leaderboard, is_fish_photo_already_saved
 from bot.handlers.messages import _strip_mention, _is_mention, set_bot_username
 
 
@@ -427,6 +427,43 @@ class TestFishCatches(BotTestCase):
         lb = run(get_chat_leaderboard(555))
         vася = next(r for r in lb if r["person_name"] == "Вася")
         self.assertAlmostEqual(vася["total_weight_kg"], 3.5, places=1)
+
+
+# ══════════════════════════════════════════════════════════════════
+# TEST GROUP 6b: Fish Photo Deduplication
+# ══════════════════════════════════════════════════════════════════
+
+class TestFishPhotoDedup(BotTestCase):
+
+    def setUp(self):
+        run(execute("DELETE FROM catches WHERE chat_id IN (555, 556)"))
+
+    def test_before_save_returns_false(self):
+        """is_fish_photo_already_saved returns False before any save."""
+        self.assertFalse(run(is_fish_photo_already_saved(555, "abc123")))
+
+    def test_after_save_returns_true(self):
+        """is_fish_photo_already_saved returns True after save_catch with same file_id."""
+        run(save_catch(555, 1, "Вася", "Щука", photo_file_id="abc123"))
+        self.assertTrue(run(is_fish_photo_already_saved(555, "abc123")))
+
+    def test_different_chat_returns_false(self):
+        """Same photo_file_id in a different chat_id returns False."""
+        run(save_catch(555, 1, "Вася", "Щука", photo_file_id="shared_file"))
+        self.assertFalse(run(is_fish_photo_already_saved(556, "shared_file")))
+
+    def test_none_photo_file_id_returns_false(self):
+        """None photo_file_id returns False without hitting the database."""
+        self.assertFalse(run(is_fish_photo_already_saved(555, None)))
+
+    def test_empty_photo_file_id_returns_false(self):
+        """Empty string photo_file_id returns False without hitting the database."""
+        self.assertFalse(run(is_fish_photo_already_saved(555, "")))
+
+    def test_rejected_catch_does_not_block_retry(self):
+        """A rejected catch (is_valid_catch=False) must not block a retry with the same photo."""
+        run(save_catch(555, 1, "Вася", "Щука", photo_file_id="retry_file", is_valid_catch=False))
+        self.assertFalse(run(is_fish_photo_already_saved(555, "retry_file")))
 
 
 # ══════════════════════════════════════════════════════════════════

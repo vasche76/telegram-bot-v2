@@ -15,7 +15,7 @@ from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
 from bot.services.ai import vision_structured, vision_analyze
-from bot.storage.catches import save_catch, get_chat_leaderboard
+from bot.storage.catches import save_catch, get_chat_leaderboard, is_fish_photo_already_saved
 from bot.storage.database import execute, fetch_all, fetch_one
 from bot.storage.users import get_display_name
 from bot.storage.expenses import add_expense, get_active_session, create_session, is_receipt_already_added
@@ -54,6 +54,12 @@ async def handle_fish_photo(
 
     # Download the largest version of the photo
     photo = msg.photo[-1]
+
+    if await is_fish_photo_already_saved(chat_id, photo.file_id):
+        log.info(f"Duplicate fish photo skipped: chat_id={chat_id} file_id={photo.file_id[:16]}…")
+        await msg.reply_text("Эта фотография уже была добавлена в список уловов.")
+        return
+
     file = await context.bot.get_file(photo.file_id)
     image_url = file.file_path  # Telegram CDN URL
 
