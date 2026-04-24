@@ -41,3 +41,12 @@ yolov8n.pt
 *.cache
 .compound-engineering/*.local.yaml
 .context/
+
+# Raw Telegram exports / large dataset intake
+ChatExport_*/
+Chat_export_*/
+Telegram Desktop/
+data/raw/
+data/intake/
+data/external/
+data/fish_dataset/raw/
