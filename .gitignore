@@ -50,3 +50,6 @@ data/raw/
 data/intake/
 data/external/
 data/fish_dataset/raw/
+
+# Full Telegram intake manifests contain captions and sender names — local-only, never commit
+data/intake_meta/**/manifest.jsonl

@@ -1,0 +1,26 @@
+# requirements-intake.txt — Dependencies for the Telegram export dataset intake pipeline.
+#
+# Run on Python 3.13 (unlike ML scripts, no PyTorch requirement here).
+# Install with:
+#   pip install -r requirements-intake.txt
+#
+# ⚠️  DO NOT add torch, torchvision, or ultralytics here.
+#     Those belong in requirements-ml.txt and require Python 3.12.
+#     Adding them here would break intake on Python 3.13.
+#
+# Explicitly FORBIDDEN (intake must remain ML-dep-free):
+#   torch
+#   torchvision
+#   ultralytics
+
+# Perceptual hashing for near-duplicate clustering (U3)
+imagehash>=4.3.1
+
+# HTML parsing for Telegram export (U1) — already in requirements.txt, listed here for completeness
+beautifulsoup4>=4.12.0
+
+# Image I/O and validation (U2) — already in requirements.txt
+Pillow>=10.0.0
+
+# Environment variables (U5) — already in requirements.txt
+python-dotenv>=1.0.0
