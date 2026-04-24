@@ -21,6 +21,21 @@ _RETRYABLE_NETWORK_ERRORS = (
     httpx.ConnectError,
     httpx.RemoteProtocolError,
 )
+_RETRYABLE_HTTP_STATUSES = (429, 503)
+
+
+def _parse_retry_after(response) -> Optional[float]:
+    """Return Retry-After seconds if header is present and a positive number, else None."""
+    value = response.headers.get("retry-after")
+    if not value:
+        return None
+    try:
+        seconds = float(value)
+        if seconds > 0:
+            return seconds
+    except (ValueError, TypeError):
+        pass
+    return None
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -70,10 +85,12 @@ async def chat_completion(
                 raise ValueError("OpenAI message content is None")
             return content
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429 and attempt < _MAX_RETRIES:
-                delay = 2 ** (attempt - 1)
+            status = e.response.status_code
+            if status in _RETRYABLE_HTTP_STATUSES and attempt < _MAX_RETRIES:
+                retry_after = _parse_retry_after(e.response)
+                delay = retry_after if retry_after is not None else 2 ** (attempt - 1)
                 log.warning(
-                    f"OpenAI 429 rate-limited (attempt {attempt}/{_MAX_RETRIES}), "
+                    f"OpenAI {status} (attempt {attempt}/{_MAX_RETRIES}), "
                     f"retrying in {delay}s"
                 )
                 await asyncio.sleep(delay)
@@ -91,6 +108,8 @@ async def chat_completion(
                 continue
             log.error(f"OpenAI request failed: {e}")
             raise
+        except ValueError:
+            raise  # already logged above; avoid double-logging via the generic handler
         except Exception as e:
             log.error(f"OpenAI request failed: {e}")
             raise

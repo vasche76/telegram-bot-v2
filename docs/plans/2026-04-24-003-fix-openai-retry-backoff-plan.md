@@ -1,7 +1,7 @@
 ---
 title: "fix: Add OpenAI 429 / transient error retry with exponential backoff"
 type: fix
-status: active
+status: completed
 date: 2026-04-24
 origin: docs/plans/2026-04-24-001-fix-bot-security-hardening-plan.md
 ---

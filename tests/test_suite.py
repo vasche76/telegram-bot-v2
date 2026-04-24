@@ -1098,12 +1098,13 @@ class TestOpenAIRetry(unittest.TestCase):
         import bot.services.ai as ai_module
         ai_module._client = None  # reset singleton so patches take effect cleanly
 
-    def _make_http_error(self, status_code: int):
+    def _make_http_error(self, status_code: int, retry_after: str = None):
         import httpx
         req = MagicMock()
         resp = MagicMock()
         resp.status_code = status_code
         resp.text = f"HTTP {status_code} error"
+        resp.headers.get.return_value = retry_after  # None by default → no Retry-After
         return httpx.HTTPStatusError(f"HTTP {status_code}", request=req, response=resp)
 
     def _make_ok_resp(self, content: str = "test response"):
@@ -1112,10 +1113,10 @@ class TestOpenAIRetry(unittest.TestCase):
         resp.json.return_value = {"choices": [{"message": {"content": content}}]}
         return resp
 
-    def _make_error_resp(self, status_code: int):
+    def _make_error_resp(self, status_code: int, retry_after: str = None):
         """Return a mock response whose raise_for_status raises HTTPStatusError."""
         resp = MagicMock()
-        resp.raise_for_status.side_effect = self._make_http_error(status_code)
+        resp.raise_for_status.side_effect = self._make_http_error(status_code, retry_after)
         return resp
 
     def _run_chat(self, mock_post_side_effects):
@@ -1180,14 +1181,6 @@ class TestOpenAIRetry(unittest.TestCase):
         mock_sleep.assert_not_called()
         self.assertEqual(mock_client.post.call_count, 1)
 
-    def test_no_retry_on_500(self):
-        """500 HTTPStatusError raises immediately — no sleep, no second attempt."""
-        import httpx
-        _, exc, mock_sleep, mock_client = self._run_chat([self._make_error_resp(500)])
-        self.assertIsInstance(exc, httpx.HTTPStatusError)
-        mock_sleep.assert_not_called()
-        self.assertEqual(mock_client.post.call_count, 1)
-
     def test_choices_guard_not_retried(self):
         """Empty choices raises ValueError immediately — not a retryable error."""
         resp = MagicMock()
@@ -1236,6 +1229,57 @@ class TestOpenAIRetry(unittest.TestCase):
                     run(chat_completion([{"role": "user", "content": "hi"}]))
         self.assertEqual(mock_sleep.call_args_list, [call(1), call(2)])
         self.assertEqual(mock_client.post.call_count, 3)
+
+    def test_retry_after_header_used_on_429(self):
+        """Retry-After header on 429 overrides exponential backoff delay."""
+        result, exc, mock_sleep, _ = self._run_chat(
+            [self._make_error_resp(429, retry_after="30"), self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
+        self.assertEqual(result, "test response")
+        mock_sleep.assert_called_once_with(30.0)
+
+    def test_retry_after_header_absent_falls_back_to_exponential(self):
+        """No Retry-After header on 429 → falls back to exponential backoff (1s)."""
+        result, exc, mock_sleep, _ = self._run_chat(
+            [self._make_error_resp(429), self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
+        mock_sleep.assert_called_once_with(1)
+
+    def test_retry_after_header_invalid_falls_back_to_exponential(self):
+        """Non-numeric Retry-After on 429 → falls back to exponential backoff (1s)."""
+        result, exc, mock_sleep, _ = self._run_chat(
+            [self._make_error_resp(429, retry_after="Wed, 21 Oct 2015 07:28:00 GMT"),
+             self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
+        mock_sleep.assert_called_once_with(1)
+
+    def test_retry_503_then_success(self):
+        """503 on first attempt, success on second — retried, sleeps 1s."""
+        result, exc, mock_sleep, _ = self._run_chat(
+            [self._make_error_resp(503), self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
+        self.assertEqual(result, "test response")
+        mock_sleep.assert_called_once_with(1)
+
+    def test_retry_after_header_used_on_503(self):
+        """Retry-After header on 503 overrides exponential backoff delay."""
+        result, exc, mock_sleep, _ = self._run_chat(
+            [self._make_error_resp(503, retry_after="10"), self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
+        mock_sleep.assert_called_once_with(10.0)
+
+    def test_no_retry_on_500(self):
+        """500 HTTPStatusError raises immediately — no sleep, no second attempt."""
+        import httpx
+        _, exc, mock_sleep, mock_client = self._run_chat([self._make_error_resp(500)])
+        self.assertIsInstance(exc, httpx.HTTPStatusError)
+        mock_sleep.assert_not_called()
+        self.assertEqual(mock_client.post.call_count, 1)
 
 
 # ══════════════════════════════════════════════════════════════════
