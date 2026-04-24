@@ -28,8 +28,10 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
+from bot.config import MAX_FISH_COUNT
 from bot.services.ai import chat_completion
 from bot.utils.logging import get_logger
+from bot.utils.text import _sanitize_caption
 
 log = get_logger("fish_vision.detector")
 
@@ -165,7 +167,7 @@ async def _detect_fish_object_gpt(
     Returns a DetectionResult. Check result.should_classify before
     proceeding to Stage B species classification.
     """
-    prompt = _DETECTION_PROMPT.replace("{caption}", caption or "(нет подписи)")
+    prompt = _DETECTION_PROMPT.replace("{caption}", _sanitize_caption(caption) or "(нет подписи)")
 
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -209,7 +211,7 @@ async def _detect_fish_object_gpt(
     result = DetectionResult(
         object_type=obj_type,
         confidence=confidence,
-        fish_count=int(data.get("fish_count", 0) or 0),
+        fish_count=min(int(data.get("fish_count", 0) or 0), MAX_FISH_COUNT),
         estimated_length_cm=data.get("estimated_length_cm"),
         reasoning=data.get("reasoning", ""),
         raw_description=data.get("raw_description", ""),

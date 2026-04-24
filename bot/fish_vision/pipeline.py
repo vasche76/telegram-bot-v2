@@ -170,13 +170,11 @@ async def analyze_fish_photo(
         detector_context=detection.raw_description,
     )
 
-    # A valid catch requires a confident identification OR at minimum unknown_fish
-    # (not "no_fish" — we're past that gate). But we still store unknown_fish catches
-    # because the detection confirmed it IS a fish, just the species is uncertain.
-    # What we do NOT allow:
-    #   - Stage A low-confidence detections (already handled above)
-    #   - Stage B species confidence below threshold → force unknown_fish (done in classifier)
-    is_valid = True
+    # A valid catch requires Stage B to return a non-zero confidence.
+    # confidence=0.0 is the error-fallback sentinel (unknown_fish on exception).
+    # Genuine unknown_fish results from uncertain but live classifications carry
+    # non-zero confidence and remain valid — the detection already confirmed a fish.
+    is_valid = classification.confidence > 0.0
 
     result = FishAnalysisResult(
         object_type=detection.object_type,
@@ -196,8 +194,9 @@ async def analyze_fish_photo(
         distinguishing_features=classification.distinguishing_features,
     )
 
+    validity = "VALID" if is_valid else "INVALID (Stage B error fallback)"
     log.info(
-        f"Fish pipeline: VALID catch — "
+        f"Fish pipeline: {validity} catch — "
         f"{classification.species_ru} (conf={classification.confidence:.2f}, "
         f"identified={classification.is_identified})"
     )

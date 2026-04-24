@@ -37,6 +37,9 @@ OPENAI_WHISPER_MODEL: str = os.environ.get("OPENAI_WHISPER_MODEL", "whisper-1")
 # # ── RAG settings ─────────────────────────────────────────
 RAG_TOP_K: int = int(os.environ.get("RAG_TOP_K", "15"))
 
+# ── Fish Vision limits ────────────────────────────────
+MAX_FISH_COUNT: int = int(os.environ.get("MAX_FISH_COUNT", "20"))
+
 # ── Admin ─────────────────────────────────────────────
 # Comma-separated list of Telegram user IDs that can use /status
 ADMIN_USER_IDS: list[int] = [

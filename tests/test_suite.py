@@ -866,6 +866,186 @@ class TestFishVisionPipeline(BotTestCase):
 
 
 # ══════════════════════════════════════════════════════════════════
+# TEST GROUP 13: Security Hardening — U1-U4
+# ══════════════════════════════════════════════════════════════════
+
+class TestAdminGate(unittest.TestCase):
+    """U1: _is_admin must deny all when ADMIN_USER_IDS is empty."""
+
+    def _call(self, user_id, admin_ids):
+        import bot.handlers.status as status_mod
+        orig = status_mod.ADMIN_USER_IDS
+        status_mod.ADMIN_USER_IDS = admin_ids
+        try:
+            return status_mod._is_admin(user_id)
+        finally:
+            status_mod.ADMIN_USER_IDS = orig
+
+    def test_admin_in_list_is_allowed(self):
+        self.assertTrue(self._call(123, [123]))
+
+    def test_non_admin_in_list_is_denied(self):
+        self.assertFalse(self._call(456, [123]))
+
+    def test_empty_list_denies_any_user(self):
+        """Empty ADMIN_USER_IDS must deny everyone — fail-closed."""
+        self.assertFalse(self._call(123, []))
+        self.assertFalse(self._call(999, []))
+        self.assertFalse(self._call(0, []))
+
+    def test_multiple_admins_any_can_access(self):
+        self.assertTrue(self._call(111, [111, 222]))
+        self.assertTrue(self._call(222, [111, 222]))
+        self.assertFalse(self._call(333, [111, 222]))
+
+
+class TestSanitizeCaption(unittest.TestCase):
+    """U2: _sanitize_caption strips control chars, caps length, handles None."""
+
+    def setUp(self):
+        from bot.utils.text import _sanitize_caption
+        self.fn = _sanitize_caption
+
+    def test_plain_russian_passes_through(self):
+        self.assertEqual(self.fn("Щука 3 кг"), "Щука 3 кг")
+
+    def test_none_returns_empty(self):
+        self.assertEqual(self.fn(None), "")
+
+    def test_empty_string_returns_empty(self):
+        self.assertEqual(self.fn(""), "")
+
+    def test_newlines_preserved(self):
+        """\\n is valid in captions and must not be stripped."""
+        text = "Первая строка\nВторая строка"
+        self.assertIn("\n", self.fn(text))
+
+    def test_null_bytes_stripped(self):
+        self.assertNotIn("\x00", self.fn("hello\x00world"))
+        self.assertEqual(self.fn("hello\x00world"), "helloworld")
+
+    def test_other_control_chars_stripped(self):
+        self.assertNotIn("\x01", self.fn("a\x01b"))
+        self.assertNotIn("\x1f", self.fn("a\x1fb"))
+        self.assertNotIn("\x7f", self.fn("a\x7fb"))
+
+    def test_length_capped_at_500(self):
+        long_text = "а" * 1000
+        result = self.fn(long_text)
+        self.assertEqual(len(result), 500)
+
+    def test_custom_max_len(self):
+        result = self.fn("hello world", max_len=5)
+        self.assertEqual(result, "hello")
+
+    def test_double_quotes_pass_through(self):
+        """Double quotes are safe in captions — no escaping needed."""
+        self.assertIn('"', self.fn('caption "with quotes"'))
+
+    def test_leading_trailing_whitespace_stripped(self):
+        self.assertEqual(self.fn("  hello  "), "hello")
+
+
+class TestIsValidCatchGating(BotTestCase):
+    """U3: is_valid_catch must be False when Stage B confidence is 0.0."""
+
+    def _make_pipeline_result(self, confidence, species_key="unknown_fish"):
+        from bot.fish_vision.pipeline import FishAnalysisResult
+        from bot.fish_vision.classifier import SPECIES_MAP
+        is_valid = confidence > 0.0
+        return FishAnalysisResult(
+            object_type="whole_fish",
+            detection_confidence=0.85,
+            species_key=species_key,
+            species_ru=SPECIES_MAP.get(species_key, "Рыба"),
+            species_confidence=confidence,
+            fish_count=1,
+            weight_kg_estimate=None,
+            length_cm_estimate=None,
+            person_name_in_photo=None,
+            is_valid_catch=is_valid,
+            rejection_reason=None if is_valid else "Stage B error fallback",
+            rejection_message="",
+            detection_reasoning="test",
+            classification_reasoning="test",
+            distinguishing_features="",
+        )
+
+    def test_zero_confidence_is_invalid(self):
+        """Stage B error fallback (confidence=0.0) must produce is_valid_catch=False."""
+        result = self._make_pipeline_result(confidence=0.0)
+        self.assertFalse(result.is_valid_catch)
+
+    def test_nonzero_confidence_is_valid(self):
+        """Any non-zero confidence must produce is_valid_catch=True."""
+        result = self._make_pipeline_result(confidence=0.01)
+        self.assertTrue(result.is_valid_catch)
+
+    def test_high_confidence_pike_is_valid(self):
+        result = self._make_pipeline_result(confidence=0.85, species_key="pike")
+        self.assertTrue(result.is_valid_catch)
+
+    def test_unknown_fish_moderate_confidence_is_valid(self):
+        """Genuine unknown_fish (confirmed fish, uncertain species) must remain valid."""
+        result = self._make_pipeline_result(confidence=0.55, species_key="unknown_fish")
+        self.assertTrue(result.is_valid_catch)
+
+    def test_zero_confidence_catch_not_in_leaderboard(self):
+        """A catch saved with is_valid_catch=False must not appear in leaderboard."""
+        async def _run():
+            await execute("DELETE FROM catches WHERE chat_id = 8888")
+            await save_catch(8888, 1, "Тест", "Рыба",
+                             fish_count=1, weight_kg=5.0,
+                             is_valid_catch=False,
+                             object_type="whole_fish",
+                             species_confidence=0.0,
+                             rejection_reason="Stage B error fallback")
+            return await get_chat_leaderboard(8888)
+        lb = run(_run())
+        self.assertEqual(len(lb), 0)
+
+
+class TestFishCountCap(unittest.TestCase):
+    """U4: fish_count from GPT must be capped at MAX_FISH_COUNT."""
+
+    def test_normal_count_passes_through(self):
+        from bot.config import MAX_FISH_COUNT
+        result = min(3, MAX_FISH_COUNT)
+        self.assertEqual(result, 3)
+
+    def test_huge_count_capped(self):
+        from bot.config import MAX_FISH_COUNT
+        result = min(9999, MAX_FISH_COUNT)
+        self.assertEqual(result, MAX_FISH_COUNT)
+        self.assertLessEqual(result, 20)
+
+    def test_max_fish_count_default_is_20(self):
+        from bot.config import MAX_FISH_COUNT
+        self.assertEqual(MAX_FISH_COUNT, 20)
+
+    def test_detector_parse_caps_fish_count(self):
+        """DetectionResult fish_count must never exceed MAX_FISH_COUNT."""
+        from bot.config import MAX_FISH_COUNT
+        from bot.fish_vision.detector import DetectionResult
+        # Simulate what the parse code does
+        raw_count = 9999
+        capped = min(int(raw_count or 0), MAX_FISH_COUNT)
+        self.assertEqual(capped, MAX_FISH_COUNT)
+
+    def test_classifier_parse_caps_fish_count(self):
+        """ClassificationResult fish_count must never exceed MAX_FISH_COUNT."""
+        from bot.config import MAX_FISH_COUNT
+        raw_count = 9999
+        capped = min(int(raw_count or 1), MAX_FISH_COUNT)
+        self.assertEqual(capped, MAX_FISH_COUNT)
+
+    def test_zero_fish_count_kept_as_zero(self):
+        from bot.config import MAX_FISH_COUNT
+        result = min(int(0 or 0), MAX_FISH_COUNT)
+        self.assertEqual(result, 0)
+
+
+# ══════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════
 

@@ -45,8 +45,10 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
+from bot.config import MAX_FISH_COUNT
 from bot.services.ai import chat_completion
 from bot.utils.logging import get_logger
+from bot.utils.text import _sanitize_caption
 
 log = get_logger("fish_vision.classifier")
 
@@ -235,8 +237,9 @@ _CLASSIFICATION_PROMPT = f"""\
 Шаг 4: Сравни с признаками каждого вида. Какие ОДНОЗНАЧНО совпадают?
 Шаг 5: Если 2+ вида подходят одинаково — выбери unknown_fish. Не угадывай!
 
-Подпись к фото: "{{caption}}"
-Контекст из детектора: "{{detector_context}}"
+Подпись к фото пользователя: "{{caption}}"
+
+«ДАННЫЕ ДЕТЕКТОРА (системные): {{detector_context}}»
 
 Допустимые виды: {_ALL_SPECIES_LIST}
 
@@ -266,7 +269,7 @@ async def _classify_fish_species_gpt(
     Returns ClassificationResult; check result.is_identified for confident species IDs.
     """
     prompt = _CLASSIFICATION_PROMPT.replace(
-        "{caption}", caption or "(нет подписи)"
+        "{caption}", _sanitize_caption(caption) or "(нет подписи)"
     ).replace(
         "{detector_context}", detector_context or "(не указан)"
     )
@@ -326,7 +329,7 @@ async def _classify_fish_species_gpt(
         confidence=confidence,
         weight_kg_estimate=data.get("weight_kg_estimate"),
         length_cm_estimate=data.get("length_cm_estimate"),
-        fish_count=int(data.get("fish_count", 1) or 1),
+        fish_count=min(int(data.get("fish_count", 1) or 1), MAX_FISH_COUNT),
         person_name_in_photo=data.get("person_name_in_photo"),
         distinguishing_features=data.get("distinguishing_features", ""),
         reasoning=data.get("reasoning", ""),

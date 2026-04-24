@@ -21,6 +21,7 @@ from bot.storage.users import get_display_name
 from bot.storage.expenses import add_expense, get_active_session, create_session, is_receipt_already_added
 from bot.fish_vision.pipeline import analyze_fish_photo
 from bot.utils.logging import get_logger
+from bot.utils.text import _sanitize_caption
 
 log = get_logger("handlers.vision")
 
@@ -100,7 +101,7 @@ async def handle_fish_photo(
             "Попробуйте более чёткое фото."
         )
         await msg.reply_text(response_text, parse_mode=ParseMode.HTML)
-        await _save_bot_response(chat_id, f"[бот отклонил фото рыбы] {result.rejection_reason}")
+        await _save_bot_response(chat_id, f"[бот отклонил фото рыбы] {result.rejection_reason or 'Stage B error fallback'}")
         return
 
     # ── Valid catch: format response ────────────────────────
@@ -209,7 +210,7 @@ async def handle_face_register(
     # Extract person name from caption
     analysis = await vision_structured(
         image_url=image_url,
-        prompt=f"""На фото человек. Подпись: "{caption}"
+        prompt=f"""На фото человек. Подпись: "{_sanitize_caption(caption)}"
 
 Определи:
 1. Имя человека (из подписи)
@@ -306,7 +307,7 @@ async def handle_receipt(
         image_url=image_url,
         prompt=f"""Распознай чек/квитанцию на фото.
 
-Подпись: "{caption}"
+Подпись: "{_sanitize_caption(caption)}"
 
 Извлеки:
 - merchant: название магазина/заведения
@@ -457,7 +458,8 @@ async def handle_photo_message(
         # Default: analyze the photo
         photo = msg.photo[-1]
         file = await context.bot.get_file(photo.file_id)
-        prompt = f"Опиши что на фото. Контекст: {clean_caption}" if clean_caption else "Подробно опиши что изображено на этом фото. Если видишь животных — определи породу/вид. Если видишь людей — опиши. Если видишь текст — прочитай."
+        safe_caption = _sanitize_caption(clean_caption)
+        prompt = f"Опиши что на фото. Контекст: {safe_caption}" if safe_caption else "Подробно опиши что изображено на этом фото. Если видишь животных — определи породу/вид. Если видишь людей — опиши. Если видишь текст — прочитай."
         result = await vision_analyze(
             image_url=file.file_path,
             prompt=prompt,

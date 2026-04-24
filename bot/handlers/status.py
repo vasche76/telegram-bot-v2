@@ -43,10 +43,17 @@ def set_health_refs(get_last_update, get_errors, get_restarts):
 
 
 def _is_admin(user_id: int) -> bool:
-    """Check if user is an admin. If no admins configured, allow all."""
+    """Check if user is an admin. Empty ADMIN_USER_IDS denies all."""
     if not ADMIN_USER_IDS:
-        return True  # No admins = everyone can use /status
+        return False  # No admins configured → deny all (fail-closed)
     return user_id in ADMIN_USER_IDS
+
+
+if not ADMIN_USER_IDS:
+    log.warning(
+        "ADMIN_USER_IDS is empty — /status command is disabled for all users. "
+        "Set ADMIN_USER_IDS in .env to enable it."
+    )
 
 
 def _format_uptime(seconds: float) -> str:
