@@ -25,7 +25,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 # ── Setup: point DATABASE_PATH to a temp file ─────────────────────
 _TMP_DB_FD, _TMP_DB = tempfile.mkstemp(suffix=".db")
@@ -1153,32 +1153,23 @@ class TestOpenAIRetry(unittest.TestCase):
     def test_all_3_attempts_429_raises(self):
         """All 3 attempts return 429 — raises after third, sleeps 1s then 2s."""
         import httpx
-        _, exc, mock_sleep, _ = self._run_chat(
+        _, exc, mock_sleep, mock_client = self._run_chat(
             [self._make_error_resp(429), self._make_error_resp(429), self._make_error_resp(429)]
         )
         self.assertIsInstance(exc, httpx.HTTPStatusError)
         self.assertEqual(exc.response.status_code, 429)
-        self.assertEqual(mock_sleep.call_count, 2)
-        mock_sleep.assert_any_call(1)
-        mock_sleep.assert_any_call(2)
+        self.assertEqual(mock_sleep.call_args_list, [call(1), call(2)])
+        self.assertEqual(mock_client.post.call_count, 3)
 
     def test_retry_timeout_exception_then_success(self):
         """TimeoutException on first attempt, success on second — retried, sleeps 1s."""
         import httpx
-        _, exc, mock_sleep, mock_client = self._run_chat([None])  # placeholder
-
-        # Re-run with network error side-effect
-        from bot.services.ai import chat_completion
-        with patch("bot.services.ai._get_client") as mock_get:
-            mock_client2 = MagicMock()
-            mock_client2.post = AsyncMock(
-                side_effect=[httpx.TimeoutException("timed out"), self._make_ok_resp()]
-            )
-            mock_get.return_value = mock_client2
-            with patch("asyncio.sleep", new=AsyncMock(return_value=None)) as mock_sleep2:
-                result = run(chat_completion([{"role": "user", "content": "hi"}]))
+        result, exc, mock_sleep, _ = self._run_chat(
+            [httpx.TimeoutException("timed out"), self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
         self.assertEqual(result, "test response")
-        mock_sleep2.assert_called_once_with(1)
+        mock_sleep.assert_called_once_with(1)
 
     def test_no_retry_on_401(self):
         """401 HTTPStatusError raises immediately — no sleep, no second attempt."""
@@ -1208,6 +1199,27 @@ class TestOpenAIRetry(unittest.TestCase):
         mock_sleep.assert_not_called()
         self.assertEqual(mock_client.post.call_count, 1)
 
+    def test_retry_remote_protocol_error_then_success(self):
+        """RemoteProtocolError on first attempt, success on second — retried, sleeps 1s."""
+        import httpx
+        result, exc, mock_sleep, _ = self._run_chat(
+            [httpx.RemoteProtocolError("peer closed connection"), self._make_ok_resp()]
+        )
+        self.assertIsNone(exc)
+        self.assertEqual(result, "test response")
+        mock_sleep.assert_called_once_with(1)
+
+    def test_content_none_not_retried(self):
+        """Response with null content raises ValueError immediately — not retried."""
+        resp = MagicMock()
+        resp.raise_for_status = MagicMock()
+        resp.json.return_value = {"choices": [{"message": {}}]}  # content key missing → None
+        _, exc, mock_sleep, mock_client = self._run_chat([resp])
+        self.assertIsInstance(exc, ValueError)
+        self.assertIn("content is None", str(exc))
+        mock_sleep.assert_not_called()
+        self.assertEqual(mock_client.post.call_count, 1)
+
     def test_all_connect_errors_exhaust_retries(self):
         """ConnectError on all 3 attempts raises after third, sleeps 1s then 2s."""
         import httpx
@@ -1222,9 +1234,7 @@ class TestOpenAIRetry(unittest.TestCase):
             with patch("asyncio.sleep", new=AsyncMock(return_value=None)) as mock_sleep:
                 with self.assertRaises(httpx.ConnectError):
                     run(chat_completion([{"role": "user", "content": "hi"}]))
-        self.assertEqual(mock_sleep.call_count, 2)
-        mock_sleep.assert_any_call(1)
-        mock_sleep.assert_any_call(2)
+        self.assertEqual(mock_sleep.call_args_list, [call(1), call(2)])
         self.assertEqual(mock_client.post.call_count, 3)
 
 
