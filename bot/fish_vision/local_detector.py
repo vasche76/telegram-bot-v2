@@ -106,10 +106,14 @@ class LocalYOLODetector:
                 tmp_path = tmp_file.name
 
             log.debug(f"Downloading image from {image_url} to {tmp_path}")
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, urllib.request.urlretrieve, image_url, tmp_path
-            )
+            loop = asyncio.get_running_loop()
+
+            def _download() -> None:
+                with urllib.request.urlopen(image_url, timeout=30) as resp:
+                    with open(tmp_path, "wb") as f:
+                        f.write(resp.read())
+
+            await loop.run_in_executor(None, _download)
 
             # Run YOLO inference (also CPU-bound — offload so we don't block asyncio)
             results = await loop.run_in_executor(

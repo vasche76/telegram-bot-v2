@@ -28,7 +28,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── Setup: point DATABASE_PATH to a temp file ─────────────────────
-_TMP_DB = tempfile.mktemp(suffix=".db")
+_TMP_DB_FD, _TMP_DB = tempfile.mkstemp(suffix=".db")
+os.close(_TMP_DB_FD)
 os.environ["DATABASE_PATH"] = _TMP_DB
 os.environ["TELEGRAM_BOT_TOKEN"] = "test-token-000"
 os.environ["OPENAI_API_KEY"] = "test-key-000"
@@ -54,9 +55,16 @@ from bot.handlers.messages import _strip_mention, _is_mention, set_bot_username
 
 # ── Helpers ────────────────────────────────────────────────────────
 
+# Single event loop reused across all tests so aiosqlite's asyncio.Lock
+# singletons stay bound to the same loop. asyncio.run() would create a
+# new loop per call, breaking locks allocated in setUpClass.
+_LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(_LOOP)
+
+
 def run(coro):
     """Run async coroutine in test."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return _LOOP.run_until_complete(coro)
 
 
 class BotTestCase(unittest.TestCase):

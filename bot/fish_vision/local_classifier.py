@@ -297,10 +297,10 @@ class LocalEfficientNetClassifier:
 
         # Download image into memory (offloaded to thread pool — urllib is synchronous)
         log.debug(f"Downloading image for classification: {image_url}")
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def _fetch() -> bytes:
-            with urllib.request.urlopen(image_url) as response:
+            with urllib.request.urlopen(image_url, timeout=30) as response:
                 return response.read()
 
         image_bytes = await loop.run_in_executor(None, _fetch)

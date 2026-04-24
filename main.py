@@ -378,7 +378,7 @@ def _watchdog_thread(loop: asyncio.AbstractEventLoop, stop_event: threading.Even
             pass  # loop is closed, process is shutting down
 
         # Wait a bit for the probe to be processed
-        time.sleep(2)
+        stop_event.wait(2)
 
         heartbeat_age = now - health.last_heartbeat
         probe_age = now - health.last_loop_probe_response

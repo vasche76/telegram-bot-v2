@@ -332,7 +332,13 @@ JSON: {{
 
     # Format response
     merchant = receipt.get("merchant", "Неизвестно")
-    total = receipt.get("total", 0)
+    try:
+        total = float(receipt.get("total", 0) or 0)
+        if not (0 <= total <= 1_000_000):
+            raise ValueError(f"total out of range: {total}")
+    except (TypeError, ValueError):
+        await msg.reply_text("🧾 Не удалось распознать сумму чека. Попробуйте ещё раз.")
+        return
     currency = receipt.get("currency", "RUB")
     items = receipt.get("items", [])
     date = receipt.get("date", "")

@@ -115,10 +115,12 @@ async def get_chat_leaderboard(chat_id: int) -> list[dict]:
 async def get_recent_catches(chat_id: int, limit: int = 10, valid_only: bool = True) -> list[dict]:
     """Get recent catches in a chat."""
     sql = "SELECT * FROM catches WHERE chat_id = ?"
+    params: tuple = (chat_id,)
     if valid_only:
         sql += " AND is_valid_catch = 1"
-    sql += f" ORDER BY created_at DESC LIMIT {limit}"
-    return await fetch_all(sql, (chat_id,))
+    sql += " ORDER BY created_at DESC LIMIT ?"
+    params += (limit,)
+    return await fetch_all(sql, params)
 
 
 async def get_catch_stats_for_chat(chat_id: int) -> dict:

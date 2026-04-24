@@ -157,15 +157,8 @@ async def transcribe_audio(file_input) -> str:
     client = _get_client()
 
     if isinstance(file_input, (bytes, bytearray)):
-        # Raw bytes from Telegram download
         file_obj = io.BytesIO(file_input)
         filename = "voice.ogg"
-    else:
-        # File path
-        file_obj = open(file_input, "rb")
-        filename = str(file_input).split("/")[-1]
-
-    try:
         resp = await client.post(
             "/audio/transcriptions",
             data={"model": OPENAI_WHISPER_MODEL, "language": "ru"},
@@ -175,9 +168,18 @@ async def transcribe_audio(file_input) -> str:
         )
         resp.raise_for_status()
         return resp.json().get("text", "")
-    finally:
-        if hasattr(file_obj, 'close'):
-            file_obj.close()
+    else:
+        filename = str(file_input).split("/")[-1]
+        with open(file_input, "rb") as file_obj:
+            resp = await client.post(
+                "/audio/transcriptions",
+                data={"model": OPENAI_WHISPER_MODEL, "language": "ru"},
+                files={"file": (filename, file_obj)},
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+                timeout=120.0,
+            )
+            resp.raise_for_status()
+            return resp.json().get("text", "")
 
 
 async def close():
