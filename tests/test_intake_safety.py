@@ -107,3 +107,37 @@ def test_stage_lists_not_empty() -> None:
     import intake_constants as c  # noqa: PLC0415
     assert len(c.STAGE_A_CLASSES) >= 5, "STAGE_A_CLASSES suspiciously short"
     assert len(c.STAGE_B_SPECIES) >= 15, "STAGE_B_SPECIES suspiciously short"
+
+
+def test_dedup_clusters_not_gitignored() -> None:
+    """Privacy-safe dedup_clusters.jsonl must NOT be gitignored (tracked output, ~20-50 KB)."""
+    result = subprocess.run(
+        [
+            "git", "check-ignore", "-v",
+            "data/intake_meta/tg_2026-04-24/dedup_clusters.jsonl",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "data/intake_meta/ dedup_clusters.jsonl IS gitignored but should be tracked. "
+        f"Matching rule: {result.stdout!r}"
+    )
+
+
+def test_dedup_summary_not_gitignored() -> None:
+    """Privacy-safe dedup_summary.json must NOT be gitignored (tracked output)."""
+    result = subprocess.run(
+        [
+            "git", "check-ignore", "-v",
+            "data/intake_meta/tg_2026-04-24/dedup_summary.json",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "data/intake_meta/ dedup_summary.json IS gitignored but should be tracked. "
+        f"Matching rule: {result.stdout!r}"
+    )

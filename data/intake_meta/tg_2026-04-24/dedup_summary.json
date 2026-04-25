@@ -1,0 +1,16 @@
+{
+  "input_records": 32664,
+  "exact_clusters": 42,
+  "exact_removed": 42,
+  "phash_candidates_upper_bound": 32617,
+  "phash_threshold": 8,
+  "perceptual_clusters": 512,
+  "perceptual_removed": 835,
+  "boundary_clusters_at_threshold": 285,
+  "total_unique_after_dedup": 31787,
+  "provisional": true,
+  "manual_review_required": true,
+  "manual_review_reason": "285 of 512 perceptual clusters have hamming_distance=8 (the threshold boundary), creating false-positive risk. Spot-check boundary clusters before use in staging or training.",
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only"
+}
