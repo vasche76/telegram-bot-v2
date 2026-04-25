@@ -1,0 +1,20 @@
+{
+  "total": 32664,
+  "corrupt": 0,
+  "low_res": 387,
+  "duplicate_hash_groups": 47,
+  "duplicate_files_in_groups": 94,
+  "duplicate_excess_files": 47,
+  "avg_file_kb": 225.99,
+  "min_file_kb": 6.98,
+  "max_file_kb": 982.97,
+  "buckets": {
+    "max_side_1280_plus": 28791,
+    "max_side_800_1279": 3486,
+    "max_side_400_799": 381,
+    "max_side_under_400": 6
+  },
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only",
+  "usage_scope": "internal_ml_training"
+}

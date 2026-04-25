@@ -41,6 +41,10 @@ LOW_RES_THRESHOLD = 800  # max-side pixels; < 800 → low_res=true
 CHUNK_SIZE = 65536  # 64 KB read chunks for SHA-256
 PROGRESS_EVERY = 1000  # log progress every N images
 
+SOURCE = "telegram_private_2026-04-24"
+LICENSE = "private_training_only"
+USAGE_SCOPE = "internal_ml_training"
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s",
@@ -111,9 +115,74 @@ def audit_image(path: Path) -> dict:
     }
 
 
-def run(manifest_path: Path, export_dir: Path, output_dir: Path) -> int:
+def _compute_summary(
+    records: list[dict],
+    total: int,
+) -> dict:
+    """Compute aggregate statistics over a list of audit records."""
+    corrupt_count = sum(1 for r in records if r.get("corrupt"))
+    low_res_count = sum(1 for r in records if r.get("low_res"))
+
+    # Duplicate detection by SHA-256 hash
+    from collections import defaultdict  # noqa: PLC0415
+    hash_groups: dict[str, list[str]] = defaultdict(list)
+    for r in records:
+        if r.get("sha256"):
+            hash_groups[r["sha256"]].append(r.get("filename", ""))
+    dup_groups = {h: fns for h, fns in hash_groups.items() if len(fns) > 1}
+    duplicate_hash_groups = len(dup_groups)
+    duplicate_files_in_groups = sum(len(fns) for fns in dup_groups.values())
+    duplicate_excess_files = sum(len(fns) - 1 for fns in dup_groups.values())
+
+    # File size stats (KB) — only for non-None file_size
+    sizes_kb = [r["file_size"] / 1024.0 for r in records if r.get("file_size") is not None]
+    avg_file_kb = round(sum(sizes_kb) / len(sizes_kb), 2) if sizes_kb else 0.0
+    min_file_kb = round(min(sizes_kb), 2) if sizes_kb else 0.0
+    max_file_kb = round(max(sizes_kb), 2) if sizes_kb else 0.0
+
+    # max_side buckets — only for non-corrupt images
+    buckets = {
+        "max_side_1280_plus": 0,
+        "max_side_800_1279": 0,
+        "max_side_400_799": 0,
+        "max_side_under_400": 0,
+    }
+    for r in records:
+        ms = r.get("max_side")
+        if ms is None:
+            continue
+        if ms >= 1280:
+            buckets["max_side_1280_plus"] += 1
+        elif ms >= 800:
+            buckets["max_side_800_1279"] += 1
+        elif ms >= 400:
+            buckets["max_side_400_799"] += 1
+        else:
+            buckets["max_side_under_400"] += 1
+
+    return {
+        "total": total,
+        "corrupt": corrupt_count,
+        "low_res": low_res_count,
+        "duplicate_hash_groups": duplicate_hash_groups,
+        "duplicate_files_in_groups": duplicate_files_in_groups,
+        "duplicate_excess_files": duplicate_excess_files,
+        "avg_file_kb": avg_file_kb,
+        "min_file_kb": min_file_kb,
+        "max_file_kb": max_file_kb,
+        "buckets": buckets,
+        "source": SOURCE,
+        "license": LICENSE,
+        "usage_scope": USAGE_SCOPE,
+    }
+
+
+def run(manifest_path: Path, export_dir: Path, output_dir: Path) -> tuple[int, dict]:
     """
-    Main pipeline entry point. Returns number of records written.
+    Main pipeline entry point.
+
+    Returns (records_written, summary_dict). Also writes audit_summary.json
+    alongside audit.jsonl in output_dir.
     """
     if not manifest_path.exists():
         log.error("manifest.jsonl not found: %s", manifest_path)
@@ -134,8 +203,7 @@ def run(manifest_path: Path, export_dir: Path, output_dir: Path) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     audit_path = output_dir / "audit.jsonl"
 
-    corrupt_count = 0
-    low_res_count = 0
+    records: list[dict] = []
     written = 0
 
     with audit_path.open("w", encoding="utf-8") as out_fh:
@@ -168,19 +236,23 @@ def run(manifest_path: Path, export_dir: Path, output_dir: Path) -> int:
                     }
                 rec = {"filename": filename, **fields}
 
-            if rec["corrupt"]:
-                corrupt_count += 1
-            if rec.get("low_res"):
-                low_res_count += 1
-
+            records.append(rec)
             out_fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
             written += 1
 
+    summary = _compute_summary(records, total)
+    summary_path = output_dir / "audit_summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+
     log.info("Audit complete: %d records written", written)
-    log.info("  corrupt : %d", corrupt_count)
-    log.info("  low_res : %d (max_side < %d px)", low_res_count, LOW_RES_THRESHOLD)
-    log.info("Audit written → %s", audit_path)
-    return written
+    log.info("  corrupt              : %d", summary["corrupt"])
+    log.info("  low_res              : %d (max_side < %d px)", summary["low_res"], LOW_RES_THRESHOLD)
+    log.info("  duplicate_hash_groups   : %d", summary["duplicate_hash_groups"])
+    log.info("  duplicate_files_in_groups: %d", summary["duplicate_files_in_groups"])
+    log.info("  duplicate_excess_files  : %d", summary["duplicate_excess_files"])
+    log.info("Audit written       → %s", audit_path)
+    log.info("Summary written     → %s", summary_path)
+    return written, summary
 
 
 def parse_args() -> argparse.Namespace:
@@ -211,8 +283,9 @@ def main() -> None:
     manifest_path = Path(args.manifest).expanduser().resolve()
     export_dir = Path(args.export_dir).expanduser().resolve()
     output_dir = Path(args.output_dir).expanduser().resolve()
-    n = run(manifest_path, export_dir, output_dir)
+    n, summary = run(manifest_path, export_dir, output_dir)
     print(f"[OK] audit.jsonl written: {n} records → {output_dir / 'audit.jsonl'}")
+    print(f"[OK] audit_summary.json  → {output_dir / 'audit_summary.json'}")
 
 
 if __name__ == "__main__":

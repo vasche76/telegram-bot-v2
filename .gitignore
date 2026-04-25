@@ -53,3 +53,6 @@ data/fish_dataset/raw/
 
 # Full Telegram intake manifests contain captions and sender names — local-only, never commit
 data/intake_meta/**/manifest.jsonl
+
+# Full audit.jsonl is large (8+ MB) — keep local-only; commit only audit_summary.json
+data/intake_meta/**/audit.jsonl
