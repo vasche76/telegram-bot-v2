@@ -56,3 +56,7 @@ data/intake_meta/**/manifest.jsonl
 
 # Full audit.jsonl is large (8+ MB) — keep local-only; commit only audit_summary.json
 data/intake_meta/**/audit.jsonl
+
+# Review artifacts: HTML contact sheets (contain file:// photo references) and
+# per-cluster decision files (may contain reviewer notes) — local-only, never commit
+data/intake_meta/**/review/

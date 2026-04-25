@@ -141,3 +141,73 @@ def test_dedup_summary_not_gitignored() -> None:
         "data/intake_meta/ dedup_summary.json IS gitignored but should be tracked. "
         f"Matching rule: {result.stdout!r}"
     )
+
+
+def test_review_html_is_gitignored() -> None:
+    """Review HTML (contains file:// photo references) MUST be gitignored."""
+    result = subprocess.run(
+        [
+            "git", "check-ignore", "-v",
+            "data/intake_meta/tg_2026-04-24/review/boundary_review.html",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        "data/intake_meta/.../review/boundary_review.html is NOT gitignored — "
+        "add 'data/intake_meta/**/review/' to .gitignore. "
+        f"git check-ignore output: {result.stdout!r} {result.stderr!r}"
+    )
+
+
+def test_review_decisions_is_gitignored() -> None:
+    """Per-cluster review decisions file MUST be gitignored (may contain reviewer notes)."""
+    result = subprocess.run(
+        [
+            "git", "check-ignore", "-v",
+            "data/intake_meta/tg_2026-04-24/review/review_decisions.json",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        "data/intake_meta/.../review/review_decisions.json is NOT gitignored — "
+        "add 'data/intake_meta/**/review/' to .gitignore. "
+        f"git check-ignore output: {result.stdout!r} {result.stderr!r}"
+    )
+
+
+def test_dedup_clusters_still_not_gitignored_after_review_rule() -> None:
+    """Regression: adding the review/ rule must not accidentally gitignore dedup_clusters.jsonl."""
+    result = subprocess.run(
+        [
+            "git", "check-ignore", "-v",
+            "data/intake_meta/tg_2026-04-24/dedup_clusters.jsonl",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "data/intake_meta/ dedup_clusters.jsonl IS gitignored but should be tracked. "
+        f"Matching rule: {result.stdout!r}"
+    )
+
+
+def test_dedup_summary_still_not_gitignored_after_review_rule() -> None:
+    """Regression: adding the review/ rule must not accidentally gitignore dedup_summary.json."""
+    result = subprocess.run(
+        [
+            "git", "check-ignore", "-v",
+            "data/intake_meta/tg_2026-04-24/dedup_summary.json",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, (
+        "data/intake_meta/ dedup_summary.json IS gitignored but should be tracked. "
+        f"Matching rule: {result.stdout!r}"
+    )
