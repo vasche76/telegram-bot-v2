@@ -251,13 +251,13 @@ def test_mixed_counted_as_fp(tmp_path: Path) -> None:
 # ─── Incomplete decisions ─────────────────────────────────────────────────────
 
 
-def test_incomplete_without_partial_exits_nonzero(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+def test_incomplete_without_partial_exits_nonzero(tmp_path: Path) -> None:
+    # KP-01: helpers must not call sys.exit — run() must return 1 directly
     dec = _make_decisions([1, 2, 3], "KEEP_DEDUP")  # missing clusters 4, 5
     clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
 
-    with pytest.raises(SystemExit) as exc_info:
-        run(decisions_path, clusters, summary, output, partial=False)
-    assert exc_info.value.code != 0
+    rc = run(decisions_path, clusters, summary, output, partial=False)
+    assert rc == 1  # hard error: incomplete without --partial
 
 
 def test_incomplete_with_partial_proceeds(tmp_path: Path) -> None:
@@ -265,8 +265,8 @@ def test_incomplete_with_partial_proceeds(tmp_path: Path) -> None:
     clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
 
     rc = run(decisions_path, clusters, summary, output, partial=True)
-    # FP rate = 0, no unsure, but is_incomplete → can't finalize
-    assert rc == 0  # UNSURE+incomplete only blocks finalize, doesn't error if fp_rate OK
+    # KP-02: incomplete + partial → valid but non-final preview state
+    assert rc == 2
 
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["review_complete"] is False
@@ -284,7 +284,8 @@ def test_dry_run_does_not_modify_summary(tmp_path: Path) -> None:
     summary_before = summary.read_text(encoding="utf-8")
 
     rc = run(decisions, clusters, summary, output, dry_run=True)
-    assert rc == 0
+    # KP-02: dry-run is a valid preview state
+    assert rc == 2
 
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["threshold_recommendation"] == "validated"
@@ -300,7 +301,8 @@ def test_all_unsure_does_not_finalize(tmp_path: Path) -> None:
     clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
 
     rc = run(decisions_path, clusters, summary, output)
-    assert rc == 0  # UNSURE alone doesn't error (fp_rate=0, no missing), but blocks finalization
+    # KP-02: UNSURE decisions block finalization → valid but non-final
+    assert rc == 2
 
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["unsure_count"] == 5
@@ -339,7 +341,8 @@ def test_already_finalized_warns_and_skips(tmp_path: Path) -> None:
     clusters, summary, decisions, output = _setup(tmp_path, n_boundary=5, provisional=False)
 
     rc = run(decisions, clusters, summary, output)
-    assert rc == 0
+    # KP-02: source already final, nothing new done → valid but non-final preview
+    assert rc == 2
 
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["threshold_recommendation"] == "validated"
@@ -400,3 +403,74 @@ def test_integration_no_pii_and_correct_counts(tmp_path: Path) -> None:
     # dedup_summary.json must be unchanged
     unchanged = json.loads(summary_path.read_text(encoding="utf-8"))
     assert unchanged["provisional"] is True
+
+
+# ─── ADV-001: Output overwrite protection ─────────────────────────────────────
+
+
+def test_overwrite_final_output_refused(tmp_path: Path) -> None:
+    """Cannot overwrite an existing finalized output without --force."""
+    clusters, summary, decisions, output = _setup(tmp_path, n_boundary=5)
+    # Manually seed a finalized output
+    output.write_text(json.dumps({"review_complete": True}), encoding="utf-8")
+
+    rc = run(decisions, clusters, summary, output)
+    assert rc == 1  # refused to overwrite — hard error
+
+    # Output must remain unchanged (original finalized value)
+    kept = json.loads(output.read_text(encoding="utf-8"))
+    assert kept == {"review_complete": True}
+
+
+def test_force_allows_overwrite_of_final_output(tmp_path: Path) -> None:
+    """--force allows overwriting a finalized output summary."""
+    clusters, summary, decisions, output = _setup(tmp_path, n_boundary=5)
+    output.write_text(json.dumps({"review_complete": True}), encoding="utf-8")
+
+    rc = run(decisions, clusters, summary, output, force=True)
+    assert rc == 0  # all KEEP_DEDUP + force → complete finalization
+
+    review = json.loads(output.read_text(encoding="utf-8"))
+    assert review["review_complete"] is True
+    assert review["keep_dedup_count"] == 5
+
+
+# ─── ADV-002: Contradictory state protection ──────────────────────────────────
+
+
+def test_contradictory_state_refused(tmp_path: Path) -> None:
+    """Source already final + decisions can't finalize → refuses to write contradictory state."""
+    dec = {
+        "schema_version": 1,
+        "threshold_reviewed": 8,
+        "decisions": [
+            {"cluster_id": i, "decision": "FALSE_POSITIVE", "note": ""} for i in range(1, 6)
+        ],
+    }
+    clusters, summary, decisions_path, output = _setup(
+        tmp_path, n_boundary=5, decisions=dec, provisional=False
+    )
+
+    rc = run(decisions_path, clusters, summary, output)
+    assert rc == 1  # contradictory: source=final but FP=100% → can't finalize
+
+
+def test_force_allows_contradictory_state_write(tmp_path: Path) -> None:
+    """--force allows writing review summary even when source is final and can't finalize."""
+    dec = {
+        "schema_version": 1,
+        "threshold_reviewed": 8,
+        "decisions": [
+            {"cluster_id": i, "decision": "FALSE_POSITIVE", "note": ""} for i in range(1, 6)
+        ],
+    }
+    clusters, summary, decisions_path, output = _setup(
+        tmp_path, n_boundary=5, decisions=dec, provisional=False
+    )
+
+    rc = run(decisions_path, clusters, summary, output, force=True)
+    assert rc == 1  # FP threshold exceeded → still rc=1, but output IS written
+
+    review = json.loads(output.read_text(encoding="utf-8"))
+    assert review["review_complete"] is False
+    assert review["threshold_recommendation"] == "lower_threshold"

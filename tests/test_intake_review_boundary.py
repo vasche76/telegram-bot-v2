@@ -132,12 +132,16 @@ def test_basic_html_generation(tmp_path: Path) -> None:
     ])
     assert rc == 0
     assert output.exists()
-    html = output.read_text(encoding="utf-8")
-    assert "KEEP_DEDUP" in html
-    assert "FALSE_POSITIVE" in html
-    assert "UNSURE" in html
-    assert "keep_1.jpg" in html
-    assert "file://" in html
+    html_text = output.read_text(encoding="utf-8")
+    assert "KEEP_DEDUP" in html_text
+    assert "FALSE_POSITIVE" in html_text
+    assert "UNSURE" in html_text
+    assert "keep_1.jpg" in html_text
+    assert "file://" in html_text
+    # T-01: verify exactly 3 cluster divs rendered (not just keyword presence)
+    assert html_text.count('data-cluster-id=') == 3, (
+        "Expected exactly 3 cluster divs for 3 input clusters"
+    )
 
 
 def test_multi_member_shows_mixed_option(tmp_path: Path) -> None:
@@ -314,6 +318,74 @@ def test_unsure_from_filter(tmp_path: Path) -> None:
     assert 'data-cluster-id="4"' not in html
     assert 'data-cluster-id="1"' not in html
     assert "UNSURE RE-PASS" in html
+
+
+def test_unsure_from_no_unsure_entries(tmp_path: Path) -> None:
+    # T-02: --unsure-from with a decisions file that has no UNSURE entries
+    # → boundary list becomes empty, HTML shows "No clusters to review"
+    clusters_file = tmp_path / "clusters.jsonl"
+    _write_clusters(clusters_file, [_make_perceptual(i, 8) for i in range(1, 4)])
+
+    decisions_file = tmp_path / "decisions.json"
+    decisions_file.write_text(json.dumps({
+        "schema_version": 1,
+        "decisions": [
+            {"cluster_id": 1, "decision": "KEEP_DEDUP"},
+            {"cluster_id": 2, "decision": "FALSE_POSITIVE"},
+            {"cluster_id": 3, "decision": "KEEP_DEDUP"},
+        ],
+    }), encoding="utf-8")
+
+    export_dir = tmp_path / "export"
+    export_dir.mkdir()
+    output = tmp_path / "unsure_empty.html"
+
+    rc = main([
+        "--clusters", str(clusters_file),
+        "--export-dir", str(export_dir),
+        "--output", str(output),
+        "--unsure-from", str(decisions_file),
+    ])
+    assert rc == 0
+    html_text = output.read_text(encoding="utf-8")
+    assert "No clusters to review" in html_text
+    assert "data-cluster-id=" not in html_text
+    assert "UNSURE RE-PASS" in html_text  # notice still shown even when empty
+
+
+def test_sample_ignored_when_unsure_from_used(tmp_path: Path) -> None:
+    # T-03: --sample is ignored when --unsure-from is active.
+    # All UNSURE clusters should appear; no SAMPLE MODE notice.
+    clusters_file = tmp_path / "clusters.jsonl"
+    _write_clusters(clusters_file, [_make_perceptual(i, 8) for i in range(1, 11)])
+
+    decisions_file = tmp_path / "decisions.json"
+    decisions_file.write_text(json.dumps({
+        "schema_version": 1,
+        "decisions": [
+            {"cluster_id": i, "decision": "UNSURE"} for i in range(1, 4)
+        ],
+    }), encoding="utf-8")
+
+    export_dir = tmp_path / "export"
+    export_dir.mkdir()
+    output = tmp_path / "unsure_sample.html"
+
+    rc = main([
+        "--clusters", str(clusters_file),
+        "--export-dir", str(export_dir),
+        "--output", str(output),
+        "--unsure-from", str(decisions_file),
+        "--sample", "1",  # should be ignored
+    ])
+    assert rc == 0
+    html_text = output.read_text(encoding="utf-8")
+    # All 3 UNSURE clusters shown, not just 1
+    assert html_text.count("data-cluster-id=") == 3, (
+        "Expected 3 UNSURE clusters; --sample should be ignored with --unsure-from"
+    )
+    assert "SAMPLE MODE" not in html_text
+    assert "UNSURE RE-PASS" in html_text
 
 
 def test_file_uri_with_space_in_export_dir(tmp_path: Path) -> None:

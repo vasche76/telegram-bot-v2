@@ -18,6 +18,13 @@ metadata; no filenames, captions, sender names, or per-cluster decisions.
 
 source=telegram_private_2026-04-24, license=private_training_only
 
+Exit codes:
+  0 — complete final accepted state (dedup_summary.json updated, review_complete=true)
+  1 — hard error: invalid input, FP threshold exceeded, unsafe overwrite attempt,
+      or contradictory state (source already final but decisions can't finalize)
+  2 — valid but non-final: --partial mode, incomplete review, UNSURE decisions
+      remain, --dry-run preview, or idempotent re-run on already-finalized source
+
 Usage:
     python3 scripts/intake_review_finalize.py \\
         --decisions <path/to/review_decisions.json> \\
@@ -26,12 +33,14 @@ Usage:
         --output    <path/to/dedup_review_summary.json> \\
         [--fp-threshold 0.15] \\
         [--partial] \\
-        [--dry-run]
+        [--dry-run] \\
+        [--force]
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -40,8 +49,6 @@ import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
 SOURCE = "telegram_private_2026-04-24"
 LICENSE = "private_training_only"
@@ -62,10 +69,15 @@ log = logging.getLogger(__name__)
 def _read_jsonl(path: Path) -> list[dict]:
     records: list[dict] = []
     with path.open(encoding="utf-8") as fh:
-        for line in fh:
+        for lineno, line in enumerate(fh, 1):
             line = line.strip()
             if line:
-                records.append(json.loads(line))
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"{path}:{lineno}: corrupt JSONL: {exc.msg} at position {exc.pos}"
+                    ) from exc
     return records
 
 
@@ -86,6 +98,15 @@ def _write_json_atomic(path: Path, data: dict) -> None:
     os.replace(tmp_path, path)
 
 
+def _sha256_file(path: Path) -> str:
+    """Return hex SHA256 of a file's contents for lightweight provenance tracking."""
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 # ─── Cluster loading ──────────────────────────────────────────────────────────
 
 
@@ -103,22 +124,9 @@ def _load_boundary_clusters(clusters_path: Path) -> list[dict]:
 def _validate_completeness(
     boundary: list[dict],
     decisions_by_id: dict[int, dict],
-    partial: bool,
 ) -> list[int]:
-    """Return list of cluster_ids missing from decisions. Exits non-zero if partial=False."""
-    missing = [c["cluster_id"] for c in boundary if c["cluster_id"] not in decisions_by_id]
-    if missing and not partial:
-        log.error("Missing decisions for %d boundary cluster(s):", len(missing))
-        for cid in missing[:20]:
-            log.error("  cluster_id=%d", cid)
-        if len(missing) > 20:
-            log.error("  ... and %d more", len(missing) - 20)
-        log.error(
-            "Use --partial to proceed with incomplete decisions (provisional flag won't be cleared), "
-            "or complete the review and re-run."
-        )
-        sys.exit(1)
-    return missing
+    """Return list of cluster_ids missing from decisions."""
+    return [c["cluster_id"] for c in boundary if c["cluster_id"] not in decisions_by_id]
 
 
 # ─── Threshold suggestion ─────────────────────────────────────────────────────
@@ -140,6 +148,7 @@ def run(
     fp_threshold: float = DEFAULT_FP_THRESHOLD,
     partial: bool = False,
     dry_run: bool = False,
+    force: bool = False,
 ) -> int:
     # ── Load inputs ───────────────────────────────────────────────────────────
     if not decisions_path.exists():
@@ -159,12 +168,58 @@ def run(
         d["cluster_id"]: d for d in decisions_data.get("decisions", [])
     }
 
-    boundary = _load_boundary_clusters(clusters_path)
+    # Load dedup_summary early for guard checks
+    with summary_path.open(encoding="utf-8") as fh:
+        dedup_summary = json.load(fh)
+    source_already_final = not dedup_summary.get("provisional", True)
+
+    # ── ADV-001: Output overwrite protection ──────────────────────────────────
+    if output_path.exists() and not force:
+        try:
+            existing_output = json.loads(output_path.read_text(encoding="utf-8"))
+            if existing_output.get("review_complete") is True:
+                log.error(
+                    "Output %s already contains a finalized review (review_complete=true). "
+                    "Use --force to overwrite.",
+                    output_path,
+                )
+                return 1
+        except (json.JSONDecodeError, OSError):
+            pass  # unreadable existing file — allow overwrite
+
+    try:
+        boundary = _load_boundary_clusters(clusters_path)
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+
     log.info("Boundary clusters (hamming==8) in clusters file: %d", len(boundary))
     log.info("Decisions loaded from file: %d", len(decisions_by_id))
 
-    # ── Completeness check ────────────────────────────────────────────────────
-    missing = _validate_completeness(boundary, decisions_by_id, partial)
+    # ── ADV-003: Cluster mismatch detection ───────────────────────────────────
+    boundary_ids = {c["cluster_id"] for c in boundary}
+    unknown_ids = set(decisions_by_id) - boundary_ids
+    if unknown_ids:
+        log.warning(
+            "Decisions reference %d cluster ID(s) not found in clusters file — "
+            "possible wrong clusters file. Unknown IDs: %s",
+            len(unknown_ids),
+            sorted(unknown_ids)[:20],
+        )
+
+    # ── KP-01: Completeness check (no sys.exit in helpers) ───────────────────
+    missing = _validate_completeness(boundary, decisions_by_id)
+    if missing and not partial:
+        log.error("Missing decisions for %d boundary cluster(s):", len(missing))
+        for cid in missing[:20]:
+            log.error("  cluster_id=%d", cid)
+        if len(missing) > 20:
+            log.error("  ... and %d more", len(missing) - 20)
+        log.error(
+            "Use --partial to proceed with incomplete decisions (provisional flag won't be cleared), "
+            "or complete the review and re-run."
+        )
+        return 1
     if missing:
         log.warning(
             "--partial mode: %d cluster(s) missing decisions. provisional flag will NOT be cleared.",
@@ -214,6 +269,19 @@ def run(
     threshold_recommendation = "validated" if can_finalize else "lower_threshold"
     review_complete = can_finalize
 
+    # ── ADV-002: Contradictory state guard ────────────────────────────────────
+    if source_already_final and not can_finalize and not force:
+        log.error(
+            "dedup_summary.json already has provisional=false but current decisions "
+            "cannot satisfy finalization criteria (review_complete would be false). "
+            "This would create a contradictory state. Use --force to override or "
+            "--dry-run to inspect without side effects."
+        )
+        return 1
+
+    # ── ADV-004: SHA256 provenance ────────────────────────────────────────────
+    clusters_sha256 = _sha256_file(clusters_path)
+
     # ── Write dedup_review_summary.json (always, tracked, no PII) ─────────────
     review_summary = {
         "reviewed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -228,6 +296,7 @@ def run(
         "threshold_recommendation": threshold_recommendation,
         "suggested_lower_threshold": suggested_threshold,
         "review_complete": review_complete,
+        "clusters_sha256": clusters_sha256,
         "source": SOURCE,
         "license": LICENSE,
     }
@@ -249,33 +318,33 @@ def run(
         print(f"  Suggested lower threshold:      {suggested_threshold}")
     print("────────────────────────────────────────────────────────\n")
 
-    # ── Finalization or re-run path ───────────────────────────────────────────
+    # ── KP-02: Finalization or re-run path — explicit exit codes ─────────────
     if can_finalize:
-        with summary_path.open(encoding="utf-8") as fh:
-            dedup_summary = json.load(fh)
-
-        if not dedup_summary.get("provisional", True):
+        if source_already_final:
             log.warning(
-                "dedup_summary.json already has provisional=false — skipping update. "
-                "Run with --dry-run to inspect without side effects."
+                "dedup_summary.json already has provisional=false — skipping update."
             )
-        elif dry_run:
+            return 2  # idempotent re-run, nothing new to finalize
+
+        if dry_run:
             log.info(
                 "--dry-run: would clear provisional=true in %s (skipped)", summary_path
             )
-        else:
-            dedup_summary["provisional"] = False
-            dedup_summary["manual_review_required"] = False
-            dedup_summary["review_completed_at"] = datetime.now(timezone.utc).isoformat()
-            _write_json_atomic(summary_path, dedup_summary)
-            log.info("Cleared provisional=true in %s", summary_path)
-            print(f"✓ dedup_summary.json updated: provisional=false")
-            print(f"✓ Downstream stages (U4–U8) are now unblocked.")
+            return 2  # valid preview state
+
+        dedup_summary["provisional"] = False
+        dedup_summary["manual_review_required"] = False
+        dedup_summary["review_completed_at"] = datetime.now(timezone.utc).isoformat()
+        _write_json_atomic(summary_path, dedup_summary)
+        log.info("Cleared provisional=true in %s", summary_path)
+        print("✓ dedup_summary.json updated: provisional=false")
+        print("✓ Downstream stages (U4–U8) are now unblocked.")
+        return 0  # complete final accepted state
 
     else:
         if fp_exceeded:
             print("⚠️  FP rate exceeds threshold — recommend re-running dedup at a lower threshold.")
-            print(f"\nSuggested re-run command:")
+            print("\nSuggested re-run command:")
             print(
                 f"  python3 scripts/intake_telegram_dedup.py \\\n"
                 f"    --export-dir \"<your-export-dir>\" \\\n"
@@ -283,6 +352,8 @@ def run(
             )
             print("\nAfter re-run: commit updated dedup_clusters.jsonl and dedup_summary.json,")
             print("then restart the review from intake_review_boundary.py.")
+            return 1  # hard error: FP threshold exceeded
+
         if has_unsure:
             print("\n⚠️  UNSURE decisions remain — resolve them before finalizing.")
             print("  Run intake_review_boundary.py with --unsure-from to target only UNSURE clusters:")
@@ -296,10 +367,7 @@ def run(
             print(f"\n⚠️  {len(missing)} clusters missing decisions (--partial mode).")
             print("  Complete the review and re-run without --partial to finalize.")
 
-        # In partial mode, missing decisions are expected — don't error unless FP rate is too high
-        return 1 if (fp_exceeded or (is_incomplete and not partial)) else 0
-
-    return 0
+        return 2  # valid but non-final: UNSURE decisions or partial-incomplete
 
 
 # ─── CLI ─────────────────────────────────────────────────────────────────────
@@ -328,6 +396,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true",
         help="Compute and print results without modifying dedup_summary.json",
     )
+    p.add_argument(
+        "--force", action="store_true",
+        help=(
+            "Override safety guards: allow overwriting a finalized output summary "
+            "and allow writing contradictory state when source is already finalized."
+        ),
+    )
     return p
 
 
@@ -341,6 +416,7 @@ def main(argv: list[str] | None = None) -> int:
         fp_threshold=args.fp_threshold,
         partial=args.partial,
         dry_run=args.dry_run,
+        force=args.force,
     )
 
 

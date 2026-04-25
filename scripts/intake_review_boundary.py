@@ -28,6 +28,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import logging
 import random
@@ -35,11 +36,6 @@ import sys
 from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-
-SOURCE = "telegram_private_2026-04-24"
-LICENSE = "private_training_only"
 
 SAMPLE_SEED = 42
 
@@ -61,16 +57,47 @@ def _file_uri(path: Path) -> str:
     return f"file:///{encoded}"
 
 
+# ─── Path safety ──────────────────────────────────────────────────────────────
+
+
+def _safe_photo_path(export_dir: Path, filename: str) -> Path:
+    """Return the resolved photo path only if it stays under export_dir.
+
+    Raises ValueError for absolute paths, ../ traversal, or any other escape.
+    """
+    resolved_export = export_dir.resolve()
+    candidate = resolved_export / filename
+    try:
+        resolved = candidate.resolve()
+    except (ValueError, OSError) as exc:
+        raise ValueError(
+            f"Invalid photo path {filename!r}: {exc}"
+        ) from exc
+    try:
+        resolved.relative_to(resolved_export)
+    except ValueError:
+        raise ValueError(
+            f"Path traversal detected: {filename!r} escapes export_dir {export_dir}"
+        )
+    # Return the unresolved candidate (may not exist yet — caller checks)
+    return export_dir.resolve() / filename
+
+
 # ─── Cluster loading ──────────────────────────────────────────────────────────
 
 
 def _load_clusters(path: Path) -> list[dict]:
     clusters: list[dict] = []
     with path.open(encoding="utf-8") as fh:
-        for line in fh:
+        for lineno, line in enumerate(fh, 1):
             line = line.strip()
             if line:
-                clusters.append(json.loads(line))
+                try:
+                    clusters.append(json.loads(line))
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"{path}:{lineno}: corrupt JSONL: {exc.msg} at position {exc.pos}"
+                    ) from exc
     return clusters
 
 
@@ -219,62 +246,40 @@ function exportDecisions() {{
 </html>
 """
 
-_CLUSTER_ROW = """\
-<div class="cluster" data-cluster-id="{cid}" data-hamming="{hamming}"
-     data-multi="{is_multi}" data-keep-filename="{keep_fn_escaped}">
-  <div class="cluster-header">
-    Cluster #{cid} &nbsp;·&nbsp; hamming={hamming}
-    {multi_badge}
-  </div>
-  <div class="images">{images_html}</div>
-  <div class="controls">
-    <label><input type="radio" name="dec-{cid}" value="KEEP_DEDUP"> KEEP_DEDUP</label>
-    <label><input type="radio" name="dec-{cid}" value="FALSE_POSITIVE"> FALSE_POSITIVE</label>
-    <label><input type="radio" name="dec-{cid}" value="UNSURE"> UNSURE</label>
-    {mixed_option}
-    <input class="note-input" type="text" placeholder="note (optional)" />
-  </div>
-</div>
-"""
-
 _MIXED_OPTION = '<label><input type="radio" name="dec-{cid}" value="MIXED"> MIXED</label>'
-
-_IMG_TAG = (
-    '<div class="img-wrap">'
-    '<img src="{uri}" loading="lazy" alt="{label}">'
-    '<div class="img-label" title="{label}">{label_short}</div>'
-    '</div>'
-)
-
-_IMG_MISSING = (
-    '<div class="img-wrap">'
-    '<span class="img-missing">[missing]<br>{label_short}</span>'
-    '<div class="img-label" title="{label}">{label_short}</div>'
-    '</div>'
-)
 
 
 def _img_html(photo_path: Path, label: str) -> str:
     label_short = label.split("/")[-1] if "/" in label else label
+    esc_label = html.escape(label, quote=True)
+    esc_short = html.escape(label_short)
     if photo_path.exists():
-        return _IMG_TAG.format(
-            uri=_file_uri(photo_path),
-            label=label,
-            label_short=label_short,
+        return (
+            f'<div class="img-wrap">'
+            f'<img src="{_file_uri(photo_path)}" loading="lazy" alt="{esc_label}">'
+            f'<div class="img-label" title="{esc_label}">{esc_short}</div>'
+            f'</div>'
         )
-    return _IMG_MISSING.format(label=label, label_short=label_short)
+    return (
+        f'<div class="img-wrap">'
+        f'<span class="img-missing">[missing]<br>{esc_short}</span>'
+        f'<div class="img-label" title="{esc_label}">{esc_short}</div>'
+        f'</div>'
+    )
 
 
 def _cluster_html(cluster: dict, export_dir: Path) -> str:
     cid = cluster["cluster_id"]
     hamming = cluster["hamming_distance"]
-    keep_fn = cluster["keep_filename"]
+    keep_fn: str = cluster["keep_filename"]
     dup_fns: list[str] = cluster.get("duplicate_filenames", [])
     is_multi = len(dup_fns) > 1
 
-    images_parts = [_img_html(export_dir / keep_fn, f"KEEP: {keep_fn}")]
+    keep_path = _safe_photo_path(export_dir, keep_fn)
+    images_parts = [_img_html(keep_path, f"KEEP: {keep_fn}")]
     for dup in dup_fns:
-        images_parts.append(_img_html(export_dir / dup, f"DUP: {dup}"))
+        dup_path = _safe_photo_path(export_dir, dup)
+        images_parts.append(_img_html(dup_path, f"DUP: {dup}"))
 
     multi_badge = (
         f'<span class="badge">multi-member: {len(dup_fns) + 1} images</span>'
@@ -282,14 +287,23 @@ def _cluster_html(cluster: dict, export_dir: Path) -> str:
     )
     mixed_option = _MIXED_OPTION.format(cid=cid) if is_multi else ""
 
-    return _CLUSTER_ROW.format(
-        cid=cid,
-        hamming=hamming,
-        is_multi=str(is_multi).lower(),
-        keep_fn_escaped=keep_fn.replace('"', "&quot;"),
-        multi_badge=multi_badge,
-        images_html="".join(images_parts),
-        mixed_option=mixed_option,
+    return (
+        f'<div class="cluster" data-cluster-id="{cid}" data-hamming="{hamming}"'
+        f' data-multi="{str(is_multi).lower()}"'
+        f' data-keep-filename="{html.escape(keep_fn, quote=True)}">\n'
+        f'  <div class="cluster-header">\n'
+        f'    Cluster #{cid} &nbsp;·&nbsp; hamming={hamming}\n'
+        f'    {multi_badge}\n'
+        f'  </div>\n'
+        f'  <div class="images">{"".join(images_parts)}</div>\n'
+        f'  <div class="controls">\n'
+        f'    <label><input type="radio" name="dec-{cid}" value="KEEP_DEDUP"> KEEP_DEDUP</label>\n'
+        f'    <label><input type="radio" name="dec-{cid}" value="FALSE_POSITIVE"> FALSE_POSITIVE</label>\n'
+        f'    <label><input type="radio" name="dec-{cid}" value="UNSURE"> UNSURE</label>\n'
+        f'    {mixed_option}\n'
+        f'    <input class="note-input" type="text" placeholder="note (optional)" />\n'
+        f'  </div>\n'
+        f'</div>'
     )
 
 
@@ -330,7 +344,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Randomly sample N clusters for calibration preview. "
             "NOTE: sample results are discarded before full review — "
-            "finalization always requires all boundary clusters to be reviewed."
+            "finalization always requires all boundary clusters to be reviewed. "
+            "Ignored when --unsure-from is used."
         ),
     )
     p.add_argument("--hamming-min", type=int, default=8, metavar="N")
@@ -342,7 +357,8 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="DECISIONS_JSON",
         help=(
             "Filter to only clusters marked UNSURE in a prior decisions file. "
-            "Use to resolve uncertain entries without re-reviewing all clusters."
+            "Use to resolve uncertain entries without re-reviewing all clusters. "
+            "--sample is ignored when this flag is used."
         ),
     )
     return p
@@ -356,7 +372,12 @@ def main(argv: list[str] | None = None) -> int:
         log.error("Clusters file not found: %s", clusters_path)
         return 1
 
-    all_clusters = _load_clusters(clusters_path)
+    try:
+        all_clusters = _load_clusters(clusters_path)
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+
     if not all_clusters:
         log.error("Clusters file is empty: %s", clusters_path)
         return 1
@@ -384,12 +405,15 @@ def main(argv: list[str] | None = None) -> int:
         unsure_repass = True
         log.info("--unsure-from: filtered to %d UNSURE clusters", len(boundary))
 
+    # --sample is ignored when --unsure-from is active
+    sampled = False
     sample_size: int | None = None
     if args.sample is not None and not unsure_repass:
         sample_size = args.sample
         if sample_size < len(boundary):
             rng = random.Random(SAMPLE_SEED)
             boundary = rng.sample(boundary, sample_size)
+            sampled = True
             log.info(
                 "SAMPLE MODE (seed=%d): %d of %d clusters selected. "
                 "This is a calibration preview — full review required for finalization.",
@@ -404,17 +428,21 @@ def main(argv: list[str] | None = None) -> int:
     export_dir: Path = args.export_dir.resolve()
 
     if boundary:
-        clusters_html_parts = [_cluster_html(c, export_dir) for c in boundary]
+        try:
+            clusters_html_parts = [_cluster_html(c, export_dir) for c in boundary]
+        except ValueError as exc:
+            log.error("%s", exc)
+            return 1
         clusters_html = "\n".join(clusters_html_parts)
     else:
         clusters_html = _no_clusters_html()
 
     sample_notice = ""
-    if sample_size is not None:
+    if sampled:
         sample_notice = (
             f'<div class="notice" style="background:#1a3a1a; border-color:#2a7a2a;">'
             f"SAMPLE MODE: showing {sample_size} randomly selected clusters (seed={SAMPLE_SEED}). "
-            f"This is a calibration preview — full 285-cluster review required before finalization. "
+            f"This is a calibration preview — full {len(all_clusters)}-cluster review required before finalization. "
             f"Discard these sample decisions before running the full pass."
             f"</div>"
         )
@@ -434,12 +462,12 @@ def main(argv: list[str] | None = None) -> int:
     meta_block = (
         f'<p style="color:#888; font-size:12px;">'
         f"Clusters: {len(boundary)} | Filter: {hamming_info} | "
-        f"Export dir: {export_dir}"
+        f"Export dir: {html.escape(str(export_dir))}"
         f"</p>"
         + sample_notice
     )
 
-    html = _HTML_HEAD.format(
+    page_html = _HTML_HEAD.format(
         meta_block=meta_block,
         clusters_html=clusters_html,
         total=len(boundary),
@@ -449,12 +477,12 @@ def main(argv: list[str] | None = None) -> int:
         unsure_repass_json=json.dumps(unsure_repass),
     )
 
-    output_path.write_text(html, encoding="utf-8")
+    output_path.write_text(page_html, encoding="utf-8")
     log.info("Written: %s", output_path)
     log.info("Clusters included: %d", len(boundary))
     print(f"Written: {output_path}")
     print(f"Clusters included: {len(boundary)}")
-    print(f"Open in browser: open -a Safari '{output_path}'")
+    log.info("Open in browser: open -a Safari '%s'", output_path)
     return 0
 
 
