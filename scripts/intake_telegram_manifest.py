@@ -79,6 +79,9 @@ def _parse_telegram_date(raw: str) -> tuple[int | None, str | None]:
 # Matches _thumb.jpg  AND  _thumb (N).jpg  (space-paren-digit-paren variants)
 _THUMB_RE = re.compile(r"_thumb(?:\s*\(\d+\))?\.jpg$", re.IGNORECASE)
 
+# Matches any photos/*.jpg reference anywhere in HTML (href, src, etc.)
+_ALL_PHOTO_JPG_RE = re.compile(r'photos/[^"\'<>\n]+?\.jpg', re.IGNORECASE)
+
 
 def _is_thumbnail(href: str) -> bool:
     """Return True for any thumbnail variant: *_thumb.jpg or *_thumb (N).jpg."""
@@ -108,15 +111,27 @@ LONG_CAPTION_THRESHOLD = 100  # characters; captions exceeding this counted as "
 
 def _write_manifest_summary(
     output_dir: Path,
-    total_jpg_refs: int,
-    main_photo_refs: int,
-    thumbnails_skipped: int,
-    duplicate_main_refs_skipped: int,
+    all_html_jpg_refs: int,
+    raw_thumbnail_jpg_refs: int,
+    raw_non_thumbnail_jpg_refs: int,
+    parser_candidate_photo_refs: int,
+    duplicate_parser_candidate_refs_skipped: int,
     final_manifest_records: int,
     records: list[dict],
 ) -> Path:
     """
     Write a privacy-safe aggregate summary (no captions, no sender names).
+
+    Counter definitions:
+      all_html_jpg_refs               — unique photos/*.jpg found anywhere in HTML (raw regex scan, set-deduped)
+      raw_thumbnail_jpg_refs          — subset of above classified as thumbnails (*_thumb.jpg, *_thumb (N).jpg)
+      raw_non_thumbnail_jpg_refs      — subset of above not classified as thumbnails
+      parser_candidate_photo_refs     — photo_wrap link hrefs selected by parser before dedup (sum across files)
+      duplicate_parser_candidate_refs_skipped — parser candidates dropped as cross-file duplicates
+      final_manifest_records          — records written to manifest.jsonl
+
+    Arithmetic guarantee:
+      parser_candidate_photo_refs - duplicate_parser_candidate_refs_skipped == final_manifest_records
 
     Returns the path of the written file.
     """
@@ -126,10 +141,11 @@ def _write_manifest_summary(
     max_caption_length = max((len(c) for c in captions), default=0)
 
     summary = {
-        "total_jpg_refs": total_jpg_refs,
-        "main_photo_refs": main_photo_refs,
-        "thumbnails_skipped": thumbnails_skipped,
-        "duplicate_main_refs_skipped": duplicate_main_refs_skipped,
+        "all_html_jpg_refs": all_html_jpg_refs,
+        "raw_thumbnail_jpg_refs": raw_thumbnail_jpg_refs,
+        "raw_non_thumbnail_jpg_refs": raw_non_thumbnail_jpg_refs,
+        "parser_candidate_photo_refs": parser_candidate_photo_refs,
+        "duplicate_parser_candidate_refs_skipped": duplicate_parser_candidate_refs_skipped,
         "final_manifest_records": final_manifest_records,
         "caption_count": caption_count,
         "long_caption_count": long_caption_count,
@@ -161,15 +177,24 @@ def parse_html_file(
     export_dir: Path,
     seen_filenames: set[str],
     records: list[dict],
+    all_jpg_refs: set[str] | None = None,
 ) -> ParseResult:
     """
     Parse one messages*.html file and append new photo records to `records`.
+
+    If `all_jpg_refs` is provided, all unique photos/*.jpg refs found anywhere
+    in the file (href, src, etc.) are added to it for cross-file dedup tracking.
 
     Returns a ParseResult namedtuple:
         (messages_scanned, jpg_refs, thumbs_skipped, dupe_skipped, added)
     """
     log.info("Parsing %s", html_path.name)
     text = html_path.read_text(encoding="utf-8")
+
+    # Raw scan: collect ALL photos/*.jpg refs regardless of HTML context
+    if all_jpg_refs is not None:
+        all_jpg_refs.update(_ALL_PHOTO_JPG_RE.findall(text))
+
     soup = BeautifulSoup(text, "html.parser")
 
     # All message divs — both leading ("message default clearfix") and
@@ -276,26 +301,28 @@ def run(export_dir: Path, output_dir: Path) -> int:
 
     records: list[dict] = []
     seen_filenames: set[str] = set()
+    all_jpg_refs: set[str] = set()
     total_scanned = 0
-    total_jpg_refs = 0
-    total_thumbs_skipped = 0
+    total_parser_candidates = 0
     total_dupe_skipped = 0
 
     for html_path in html_files:
-        result = parse_html_file(html_path, export_dir, seen_filenames, records)
+        result = parse_html_file(html_path, export_dir, seen_filenames, records, all_jpg_refs)
         total_scanned += result.messages_scanned
-        total_jpg_refs += result.jpg_refs
-        total_thumbs_skipped += result.thumbs_skipped
+        total_parser_candidates += result.added + result.dupe_skipped
         total_dupe_skipped += result.dupe_skipped
 
-    main_refs = total_jpg_refs - total_thumbs_skipped
+    all_html_jpg = len(all_jpg_refs)
+    raw_thumbnail_jpg = sum(1 for r in all_jpg_refs if _is_thumbnail(r))
+    raw_non_thumbnail_jpg = all_html_jpg - raw_thumbnail_jpg
 
-    log.info("Messages scanned:          %d", total_scanned)
-    log.info("Total JPG refs:            %d", total_jpg_refs)
-    log.info("  Main photo refs:         %d", main_refs)
-    log.info("  Thumbnails skipped:      %d", total_thumbs_skipped)
-    log.info("  Duplicate main refs:     %d", total_dupe_skipped)
-    log.info("Manifest records written:  %d", len(records))
+    log.info("Messages scanned:                          %d", total_scanned)
+    log.info("All HTML JPG refs (unique, raw scan):      %d", all_html_jpg)
+    log.info("  Raw thumbnail refs:                      %d", raw_thumbnail_jpg)
+    log.info("  Raw non-thumbnail refs:                  %d", raw_non_thumbnail_jpg)
+    log.info("Parser candidate photo refs (pre-dedup):   %d", total_parser_candidates)
+    log.info("  Duplicate parser candidates skipped:     %d", total_dupe_skipped)
+    log.info("Manifest records written:                  %d", len(records))
 
     with manifest_path.open("w", encoding="utf-8") as fh:
         for rec in records:
@@ -305,10 +332,11 @@ def run(export_dir: Path, output_dir: Path) -> int:
 
     summary_path = _write_manifest_summary(
         output_dir=output_dir,
-        total_jpg_refs=total_jpg_refs,
-        main_photo_refs=main_refs,
-        thumbnails_skipped=total_thumbs_skipped,
-        duplicate_main_refs_skipped=total_dupe_skipped,
+        all_html_jpg_refs=all_html_jpg,
+        raw_thumbnail_jpg_refs=raw_thumbnail_jpg,
+        raw_non_thumbnail_jpg_refs=raw_non_thumbnail_jpg,
+        parser_candidate_photo_refs=total_parser_candidates,
+        duplicate_parser_candidate_refs_skipped=total_dupe_skipped,
         final_manifest_records=len(records),
         records=records,
     )

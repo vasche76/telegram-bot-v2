@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from intake_telegram_manifest import (  # noqa: E402
     LONG_CAPTION_THRESHOLD,
+    _ALL_PHOTO_JPG_RE,
     _is_thumbnail,
     _parse_telegram_date,
     _sort_key,
@@ -152,7 +153,7 @@ def test_happy_path_10_photos(tmp_path: Path) -> None:
 
     records: list[dict] = []
     seen: set[str] = set()
-    result = parse_html_file(html_path, tmp_path, seen, records)
+    result = parse_html_file(html_path, tmp_path, seen, records, set())
 
     assert result.added == 10
     assert result.dupe_skipped == 0
@@ -187,8 +188,9 @@ def test_multi_file_no_overlap(tmp_path: Path) -> None:
 
     records: list[dict] = []
     seen: set[str] = set()
+    all_refs: set[str] = set()
     for html_path in sorted((tmp_path / f for f in ["messages.html", "messages2.html"])):
-        parse_html_file(html_path, tmp_path, seen, records)
+        parse_html_file(html_path, tmp_path, seen, records, all_refs)
 
     assert len(records) == 10
     assert len({r["filename"] for r in records}) == 10
@@ -206,7 +208,7 @@ def test_no_caption_message(tmp_path: Path) -> None:
     html_path.write_text(html, encoding="utf-8")
 
     records: list[dict] = []
-    parse_html_file(html_path, tmp_path, set(), records)
+    parse_html_file(html_path, tmp_path, set(), records, set())
     assert len(records) == 1
     assert records[0]["caption"] == ""
 
@@ -218,7 +220,7 @@ def test_text_only_message_skipped(tmp_path: Path) -> None:
     html_path.write_text(_make_html(msg), encoding="utf-8")
 
     records: list[dict] = []
-    parse_html_file(html_path, tmp_path, set(), records)
+    parse_html_file(html_path, tmp_path, set(), records, set())
     assert len(records) == 0
 
 
@@ -235,7 +237,7 @@ def test_duplicate_filename_deduplicated(tmp_path: Path) -> None:
     records: list[dict] = []
     seen: set[str] = set()
     for name in ["messages.html", "messages2.html"]:
-        parse_html_file(tmp_path / name, tmp_path, seen, records)
+        parse_html_file(tmp_path / name, tmp_path, seen, records, set())
 
     assert len(records) == 1
 
@@ -252,7 +254,7 @@ def test_malformed_date_sets_null(tmp_path: Path) -> None:
     html_path.write_text(_make_html(msg), encoding="utf-8")
 
     records: list[dict] = []
-    parse_html_file(html_path, tmp_path, set(), records)
+    parse_html_file(html_path, tmp_path, set(), records, set())
     assert len(records) == 1
     assert records[0]["timestamp"] is None
 
@@ -265,7 +267,7 @@ def test_missing_photo_file_sets_parse_error(tmp_path: Path) -> None:
     html_path.write_text(_make_html(msg), encoding="utf-8")
 
     records: list[dict] = []
-    parse_html_file(html_path, tmp_path, set(), records)
+    parse_html_file(html_path, tmp_path, set(), records, set())
     assert len(records) == 1
     assert records[0]["parse_error"] is True
 
@@ -284,7 +286,7 @@ def test_joined_messages_inherit_sender(tmp_path: Path) -> None:
     html_path.write_text(_make_html(msgs), encoding="utf-8")
 
     records: list[dict] = []
-    parse_html_file(html_path, tmp_path, set(), records)
+    parse_html_file(html_path, tmp_path, set(), records, set())
     assert len(records) == 2
     assert records[1]["sender_name"] == "Alice"
 
@@ -357,7 +359,7 @@ def test_simple_thumb_skipped(tmp_path: Path) -> None:
     html_path.write_text(_make_html_with_href(thumb_href), encoding="utf-8")
 
     records: list[dict] = []
-    result = parse_html_file(html_path, tmp_path, set(), records)
+    result = parse_html_file(html_path, tmp_path, set(), records, set())
 
     assert result.added == 0
     assert result.thumbs_skipped == 1
@@ -374,7 +376,7 @@ def test_numbered_thumb_skipped(tmp_path: Path) -> None:
     html_path.write_text(_make_html_with_href(thumb_href), encoding="utf-8")
 
     records: list[dict] = []
-    result = parse_html_file(html_path, tmp_path, set(), records)
+    result = parse_html_file(html_path, tmp_path, set(), records, set())
 
     assert result.added == 0
     assert result.thumbs_skipped == 1
@@ -401,7 +403,7 @@ def test_mixed_main_and_thumbs(tmp_path: Path) -> None:
     html_path.write_text(_make_html(msgs), encoding="utf-8")
 
     records: list[dict] = []
-    result = parse_html_file(html_path, tmp_path, set(), records)
+    result = parse_html_file(html_path, tmp_path, set(), records, set())
 
     assert result.jpg_refs == 4
     assert result.thumbs_skipped == 2
@@ -422,8 +424,8 @@ def test_parse_result_dupe_counter(tmp_path: Path) -> None:
 
     seen: set[str] = set()
     records: list[dict] = []
-    r1 = parse_html_file(tmp_path / "messages.html", tmp_path, seen, records)
-    r2 = parse_html_file(tmp_path / "messages2.html", tmp_path, seen, records)
+    r1 = parse_html_file(tmp_path / "messages.html", tmp_path, seen, records, set())
+    r2 = parse_html_file(tmp_path / "messages2.html", tmp_path, seen, records, set())
 
     assert r1.added == 1 and r1.dupe_skipped == 0
     assert r2.added == 0 and r2.dupe_skipped == 1
@@ -455,8 +457,9 @@ def test_run_writes_manifest_summary(tmp_path: Path) -> None:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
     required_keys = {
-        "total_jpg_refs", "main_photo_refs", "thumbnails_skipped",
-        "duplicate_main_refs_skipped", "final_manifest_records",
+        "all_html_jpg_refs", "raw_thumbnail_jpg_refs", "raw_non_thumbnail_jpg_refs",
+        "parser_candidate_photo_refs", "duplicate_parser_candidate_refs_skipped",
+        "final_manifest_records",
         "caption_count", "long_caption_count", "max_caption_length",
         "source", "license", "usage_scope",
     }
@@ -477,10 +480,11 @@ def test_manifest_summary_no_pii_fields(tmp_path: Path) -> None:
     ]
     _write_manifest_summary(
         output_dir=tmp_path,
-        total_jpg_refs=1,
-        main_photo_refs=1,
-        thumbnails_skipped=0,
-        duplicate_main_refs_skipped=0,
+        all_html_jpg_refs=1,
+        raw_thumbnail_jpg_refs=0,
+        raw_non_thumbnail_jpg_refs=1,
+        parser_candidate_photo_refs=1,
+        duplicate_parser_candidate_refs_skipped=0,
         final_manifest_records=1,
         records=records,
     )
@@ -504,10 +508,11 @@ def test_manifest_summary_caption_counts(tmp_path: Path) -> None:
     ]
     _write_manifest_summary(
         output_dir=tmp_path,
-        total_jpg_refs=3,
-        main_photo_refs=3,
-        thumbnails_skipped=0,
-        duplicate_main_refs_skipped=0,
+        all_html_jpg_refs=3,
+        raw_thumbnail_jpg_refs=0,
+        raw_non_thumbnail_jpg_refs=3,
+        parser_candidate_photo_refs=3,
+        duplicate_parser_candidate_refs_skipped=0,
         final_manifest_records=3,
         records=records,
     )
@@ -515,3 +520,131 @@ def test_manifest_summary_caption_counts(tmp_path: Path) -> None:
     assert summary["caption_count"] == 2          # "short" + long_cap; "" is not counted
     assert summary["long_caption_count"] == 1     # only long_cap exceeds threshold
     assert summary["max_caption_length"] == len(long_cap)
+
+
+# ─── raw all_jpg_refs scan ────────────────────────────────────────────────────
+
+
+def test_raw_scan_counts_img_src_thumbnails(tmp_path: Path) -> None:
+    """
+    Raw scan (_ALL_PHOTO_JPG_RE) finds photos/*.jpg in both <a href> and <img src>.
+
+    The helper _make_html embeds the main photo in <a href> and its _thumb.jpg
+    variant in <img src>.  Both must appear in all_jpg_refs; only the img src one
+    is a thumbnail.
+    """
+    (tmp_path / "photos").mkdir()
+    main_href = "photos/photo_1@01-01-2020.jpg"
+    (tmp_path / main_href).touch()
+
+    html_path = tmp_path / "messages.html"
+    html_path.write_text(_make_html_with_href(main_href), encoding="utf-8")
+
+    all_refs: set[str] = set()
+    records: list[dict] = []
+    parse_html_file(html_path, tmp_path, set(), records, all_refs)
+
+    # main photo ref captured from <a href>
+    assert main_href in all_refs
+    # thumbnail ref captured from <img src> (auto-generated by _make_html)
+    thumb_href = main_href.replace(".jpg", "_thumb.jpg")
+    assert thumb_href in all_refs
+
+    # thumbnail identified correctly by _is_thumbnail
+    assert _is_thumbnail(thumb_href) is True
+    assert _is_thumbnail(main_href) is False
+
+
+def test_raw_scan_thumbnail_variants(tmp_path: Path) -> None:
+    """
+    Raw scan correctly categorises both *_thumb.jpg and *_thumb (N).jpg as thumbnails.
+    """
+    html = (
+        '<html><body>'
+        '<a href="photos/photo_1@2020.jpg">'
+        '<img src="photos/photo_1@2020_thumb.jpg"/>'
+        '</a>'
+        '<a href="photos/photo_2@2020_thumb.jpg">'
+        '<img src="photos/photo_2@2020_thumb (1).jpg"/>'
+        '</a>'
+        '</body></html>'
+    )
+    html_path = tmp_path / "messages.html"
+    html_path.write_text(html, encoding="utf-8")
+
+    all_refs: set[str] = set()
+    parse_html_file(html_path, tmp_path, set(), [], all_refs)
+
+    thumbs = {r for r in all_refs if _is_thumbnail(r)}
+    mains = {r for r in all_refs if not _is_thumbnail(r)}
+
+    # plain _thumb.jpg and space-paren variant both detected
+    assert any("_thumb.jpg" in r and " (" not in r for r in thumbs), \
+        f"Expected plain _thumb.jpg in thumbs, got {thumbs}"
+    assert any("_thumb (1).jpg" in r for r in thumbs), \
+        f"Expected _thumb (1).jpg in thumbs, got {thumbs}"
+    assert len(mains) == 1  # only photo_1@2020.jpg is a main photo
+
+
+# ─── summary counter arithmetic ──────────────────────────────────────────────
+
+
+def test_summary_arithmetic_holds(tmp_path: Path) -> None:
+    """parser_candidate_photo_refs - duplicate_parser_candidate_refs_skipped == final_manifest_records."""
+    (tmp_path / "photos").mkdir()
+    for i in range(1, 4):
+        (tmp_path / f"photos/photo_{i}@01-01-2020_12-00-00.jpg").touch()
+
+    # file 1: photos 1, 2  |  file 2: photo 2 (dup), photo 3
+    msgs1 = [
+        {"id": 1, "from_name": "A", "photo_href": "photos/photo_1@01-01-2020_12-00-00.jpg"},
+        {"id": 2, "from_name": "A", "photo_href": "photos/photo_2@01-01-2020_12-00-00.jpg"},
+    ]
+    msgs2 = [
+        {"id": 3, "from_name": "B", "photo_href": "photos/photo_2@01-01-2020_12-00-00.jpg"},
+        {"id": 4, "from_name": "B", "photo_href": "photos/photo_3@01-01-2020_12-00-00.jpg"},
+    ]
+    (tmp_path / "messages.html").write_text(_make_html(msgs1), encoding="utf-8")
+    (tmp_path / "messages2.html").write_text(_make_html(msgs2), encoding="utf-8")
+
+    output_dir = tmp_path / "out"
+    run(tmp_path, output_dir)
+
+    summary = json.loads((output_dir / "manifest_summary.json").read_text(encoding="utf-8"))
+    assert (
+        summary["parser_candidate_photo_refs"]
+        - summary["duplicate_parser_candidate_refs_skipped"]
+        == summary["final_manifest_records"]
+    ), "Arithmetic invariant violated"
+    assert summary["final_manifest_records"] == 3      # 3 unique photos
+    assert summary["duplicate_parser_candidate_refs_skipped"] == 1  # photo_2 seen twice
+    assert summary["parser_candidate_photo_refs"] == 4  # 4 parser-selected non-thumb hrefs
+
+
+def test_raw_thumbnail_counting_in_summary(tmp_path: Path) -> None:
+    """raw_thumbnail_jpg_refs counts both *_thumb.jpg and *_thumb (N).jpg from the raw scan."""
+    (tmp_path / "photos").mkdir()
+    (tmp_path / "photos/photo_1@2020.jpg").touch()
+    (tmp_path / "photos/photo_2@2020.jpg").touch()
+
+    # HTML with explicit thumb variants in img src (no proper message divs, so parser finds 0 records)
+    html = (
+        "<html><body>"
+        '<a class="photo_wrap" href="photos/photo_1@2020.jpg">'
+        '<img src="photos/photo_1@2020_thumb.jpg"/>'
+        "</a>"
+        '<a class="photo_wrap" href="photos/photo_2@2020.jpg">'
+        '<img src="photos/photo_2@2020_thumb (3).jpg"/>'
+        "</a>"
+        "</body></html>"
+    )
+    (tmp_path / "messages.html").write_text(html, encoding="utf-8")
+
+    output_dir = tmp_path / "out"
+    run(tmp_path, output_dir)
+
+    summary = json.loads((output_dir / "manifest_summary.json").read_text(encoding="utf-8"))
+    # Raw scan: 2 main + 1 plain thumb + 1 numbered thumb = 4 unique refs
+    assert summary["all_html_jpg_refs"] == 4
+    assert summary["raw_thumbnail_jpg_refs"] == 2   # both _thumb.jpg and _thumb (N).jpg counted
+    assert summary["raw_non_thumbnail_jpg_refs"] == 2

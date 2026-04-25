@@ -1,0 +1,14 @@
+{
+  "all_html_jpg_refs": 65423,
+  "raw_thumbnail_jpg_refs": 32755,
+  "raw_non_thumbnail_jpg_refs": 32668,
+  "parser_candidate_photo_refs": 32751,
+  "duplicate_parser_candidate_refs_skipped": 87,
+  "final_manifest_records": 32664,
+  "caption_count": 7984,
+  "long_caption_count": 6274,
+  "max_caption_length": 1452,
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only",
+  "usage_scope": "private_training_only"
+}
