@@ -60,3 +60,11 @@ data/intake_meta/**/audit.jsonl
 # Review artifacts: HTML contact sheets (contain file:// photo references) and
 # per-cluster decision files (may contain reviewer notes) — local-only, never commit
 data/intake_meta/**/review/
+
+# U4 filter pipeline — full-image-list JSONL files are local-only (filenames + metadata,
+# exceeds the cluster-summary precedent); tracked summary JSON files are NOT listed here.
+data/intake_meta/**/filter_universe.jsonl
+data/intake_meta/**/filter_signals.jsonl
+data/intake_meta/**/filter_candidates.jsonl
+data/intake_meta/**/filter_candidates_final.jsonl
+data/intake_meta/**/filter_decisions.jsonl

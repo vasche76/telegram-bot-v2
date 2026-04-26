@@ -1,0 +1,16 @@
+{
+  "input_records": 32664,
+  "audit_non_corrupt_records": 32664,
+  "dedup_duplicate_removed": 244,
+  "corrupt_excluded": 0,
+  "missing_in_audit": 0,
+  "low_res_count": 371,
+  "unique_records": 32420,
+  "universe_sha256": "6f75942556e0afd9fe0011d48db04986c7ad160227bdd44cc99bd20a7d7d2c6b",
+  "expected_unique_records_from_dedup": 32420,
+  "consistency_ok": true,
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only",
+  "generated_at": "2026-04-26T18:47:59.885174+00:00",
+  "schema_version": 1
+}

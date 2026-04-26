@@ -69,3 +69,28 @@ except ImportError:
 
 STAGE_A_CLASSES_SET: set[str] = set(STAGE_A_CLASSES)
 STAGE_B_SPECIES_SET: set[str] = set(STAGE_B_SPECIES)
+
+# ─── U4 coarse-filter paths ───────────────────────────────────────────────────
+
+FILTER_UNIVERSE_PATH = INTAKE_META_ROOT / "filter_universe.jsonl"           # local-only
+FILTER_UNIVERSE_SUMMARY_PATH = INTAKE_META_ROOT / "filter_universe_summary.json"  # tracked
+FILTER_SIGNALS_PATH = INTAKE_META_ROOT / "filter_signals.jsonl"             # local-only
+FILTER_SIGNALS_SUMMARY_PATH = INTAKE_META_ROOT / "filter_signals_summary.json"    # tracked
+FILTER_CANDIDATES_PATH = INTAKE_META_ROOT / "filter_candidates.jsonl"       # local-only
+FILTER_CANDIDATES_SUMMARY_PATH = INTAKE_META_ROOT / "filter_candidates_summary.json"  # tracked
+FILTER_REVIEW_SUMMARY_PATH = INTAKE_META_ROOT / "filter_review_summary.json"       # tracked
+FILTER_REVIEW_DIR = INTAKE_META_ROOT / "review"                              # already gitignored
+
+# ─── U4 coarse category constants ─────────────────────────────────────────────
+# Priority-ordered. unknown_needs_review is the catch-all and MUST remain last.
+
+COARSE_CATEGORIES: list[str] = [
+    "fish",
+    "no_fish",
+    "lure_fishing_gear",
+    "fish_part",
+    "fry_juvenile",
+    "poster_screenshot",
+    "unknown_needs_review",
+]
+COARSE_CATEGORIES_SET: set[str] = set(COARSE_CATEGORIES)
