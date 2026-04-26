@@ -1,0 +1,17 @@
+{
+  "reviewed_at": "2026-04-25",
+  "threshold_reviewed": 2,
+  "boundary_clusters_total": 27,
+  "boundary_clusters_reviewed": 27,
+  "keep_dedup_count": 27,
+  "false_positive_count": 0,
+  "mixed_count": 0,
+  "unsure_count": 0,
+  "false_positive_rate": 0.0,
+  "threshold_recommendation": "validated",
+  "suggested_lower_threshold": null,
+  "review_complete": true,
+  "clusters_sha256": "681d9609d4568739e8fb5cce40d0d44075b2f72c6e65db4ff6c2234baee267a9",
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only"
+}

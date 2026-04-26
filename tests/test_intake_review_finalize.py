@@ -209,7 +209,7 @@ def test_fp_exceeded_does_not_modify_summary(tmp_path: Path) -> None:
     clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=20, decisions=dec)
 
     rc = run(decisions_path, clusters, summary, output, fp_threshold=0.15)
-    assert rc != 0
+    assert rc == 1
 
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["threshold_recommendation"] == "lower_threshold"
@@ -236,7 +236,7 @@ def test_mixed_counted_as_fp(tmp_path: Path) -> None:
     clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=20, decisions=dec)
 
     rc = run(decisions_path, clusters, summary, output, fp_threshold=0.15)
-    assert rc != 0
+    assert rc == 1
 
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["mixed_count"] == 4
@@ -382,7 +382,7 @@ def test_integration_no_pii_and_correct_counts(tmp_path: Path) -> None:
     rc = run(decisions_path, clusters_path, summary_path, output_path, fp_threshold=0.15)
 
     # fp_rate = (1 FP + 1 MIXED) / 10 = 0.20 ≥ 0.15 → should NOT finalize
-    assert rc != 0
+    assert rc == 1
 
     review = json.loads(output_path.read_text(encoding="utf-8"))
     assert review["boundary_clusters_reviewed"] == 10
@@ -474,3 +474,210 @@ def test_force_allows_contradictory_state_write(tmp_path: Path) -> None:
     review = json.loads(output.read_text(encoding="utf-8"))
     assert review["review_complete"] is False
     assert review["threshold_recommendation"] == "lower_threshold"
+
+
+# ─── Dynamic threshold: phash_threshold=2 ────────────────────────────────────
+
+
+def _make_dedup_summary_threshold2(provisional: bool = True) -> dict:
+    return {
+        "input_records": 100,
+        "phash_threshold": 2,
+        "perceptual_clusters": 30,
+        "boundary_clusters_at_threshold": 5,
+        "provisional": provisional,
+        "manual_review_required": provisional,
+        "source": "telegram_private_2026-04-24",
+        "license": "private_training_only",
+    }
+
+
+def _make_boundary_cluster_hamming2(cid: int) -> dict:
+    return {
+        "cluster_id": cid,
+        "cluster_type": "perceptual",
+        "keep_filename": f"photos/keep_{cid}.jpg",
+        "duplicate_filenames": [f"photos/dup_{cid}.jpg"],
+        "hamming_distance": 2,
+        "reason": "phash_hamming<=2",
+    }
+
+
+def test_threshold2_all_keep_dedup_finalizes(tmp_path: Path) -> None:
+    """phash_threshold=2: boundary clusters at hamming=2 are selected and finalized."""
+    n = 5
+    clusters_path = tmp_path / "dedup_clusters.jsonl"
+    # mix: some hamming=2 (boundary) and some hamming=0 (non-boundary)
+    records = [_make_boundary_cluster_hamming2(i) for i in range(1, n + 1)]
+    records += [_make_non_boundary(100 + i, 0) for i in range(3)]
+    _write_clusters(clusters_path, records)
+
+    summary_path = tmp_path / "dedup_summary.json"
+    summary_path.write_text(json.dumps(_make_dedup_summary_threshold2()), encoding="utf-8")
+
+    decisions_path = tmp_path / "decisions.json"
+    decisions_path.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "threshold_reviewed": 2,
+            "decisions": [
+                {"cluster_id": i, "decision": "KEEP_DEDUP", "note": ""} for i in range(1, n + 1)
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "dedup_review_summary.json"
+    rc = run(decisions_path, clusters_path, summary_path, output_path)
+    assert rc == 0
+
+    review = json.loads(output_path.read_text(encoding="utf-8"))
+    assert review["boundary_clusters_total"] == n
+    assert review["keep_dedup_count"] == n
+    assert review["false_positive_count"] == 0
+    assert review["false_positive_rate"] == 0.0
+    assert review["threshold_recommendation"] == "validated"
+    assert review["review_complete"] is True
+
+    updated = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert updated["provisional"] is False
+    assert updated["manual_review_required"] is False
+
+
+# ─── P1: cluster_id validation ────────────────────────────────────────────────
+
+
+def test_decision_missing_cluster_id_returns_rc1(tmp_path: Path) -> None:
+    """Decision entry without cluster_id must return rc=1 without raw traceback."""
+    dec = {
+        "schema_version": 1,
+        "threshold_reviewed": 8,
+        "decisions": [
+            {"decision": "KEEP_DEDUP", "note": ""},  # no cluster_id at all
+        ],
+    }
+    clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
+    rc = run(decisions_path, clusters, summary, output)
+    assert rc == 1
+
+
+def test_decision_string_cluster_id_accepted(tmp_path: Path) -> None:
+    """Decision entry with string cluster_id like '3' must be coerced to int and accepted."""
+    dec = {
+        "schema_version": 1,
+        "threshold_reviewed": 8,
+        "decisions": [
+            {"cluster_id": str(i), "decision": "KEEP_DEDUP", "note": ""}
+            for i in range(1, 6)
+        ],
+    }
+    clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
+    rc = run(decisions_path, clusters, summary, output)
+    assert rc == 0
+
+    review = json.loads(output.read_text(encoding="utf-8"))
+    assert review["keep_dedup_count"] == 5
+    assert review["review_complete"] is True
+
+
+def test_decision_non_coercible_cluster_id_returns_rc1(tmp_path: Path) -> None:
+    """Decision entry with non-integer string cluster_id must return rc=1."""
+    dec = {
+        "schema_version": 1,
+        "threshold_reviewed": 8,
+        "decisions": [
+            {"cluster_id": "abc", "decision": "KEEP_DEDUP", "note": ""},
+        ],
+    }
+    clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
+    rc = run(decisions_path, clusters, summary, output)
+    assert rc == 1
+
+
+def test_decision_null_cluster_id_returns_rc1(tmp_path: Path) -> None:
+    """Decision entry with null cluster_id must return rc=1."""
+    dec = {
+        "schema_version": 1,
+        "threshold_reviewed": 8,
+        "decisions": [
+            {"cluster_id": None, "decision": "KEEP_DEDUP", "note": ""},
+        ],
+    }
+    clusters, summary, decisions_path, output = _setup(tmp_path, n_boundary=5, decisions=dec)
+    rc = run(decisions_path, clusters, summary, output)
+    assert rc == 1
+
+
+# ─── P2: threshold_reviewed fallback ──────────────────────────────────────────
+
+
+def test_threshold_reviewed_fallback_uses_phash_threshold(tmp_path: Path) -> None:
+    """Missing threshold_reviewed falls back to phash_threshold (not hardcoded 8)."""
+    n = 5
+    clusters_path = tmp_path / "clusters.jsonl"
+    _write_clusters(clusters_path, [_make_boundary_cluster_hamming2(i) for i in range(1, n + 1)])
+
+    summary_path = tmp_path / "dedup_summary.json"
+    summary_path.write_text(json.dumps(_make_dedup_summary_threshold2()), encoding="utf-8")
+
+    dec = {
+        "schema_version": 1,
+        # deliberately omit threshold_reviewed — fallback must use phash_threshold=2, not 8
+        "decisions": [
+            {"cluster_id": i, "decision": "KEEP_DEDUP", "note": ""} for i in range(1, n + 1)
+        ],
+    }
+    decisions_path = tmp_path / "decisions.json"
+    decisions_path.write_text(json.dumps(dec), encoding="utf-8")
+
+    output_path = tmp_path / "dedup_review_summary.json"
+    rc = run(decisions_path, clusters_path, summary_path, output_path)
+    assert rc == 0
+
+    review = json.loads(output_path.read_text(encoding="utf-8"))
+    assert review["threshold_reviewed"] == 2  # phash_threshold from summary, not hardcoded 8
+
+
+# ─── P3: manual_review_reason updated on finalization ─────────────────────────
+
+
+def test_finalization_updates_manual_review_reason(tmp_path: Path) -> None:
+    """Successful finalization replaces stale manual_review_reason with completed-review wording."""
+    clusters, summary, decisions, output = _setup(tmp_path, n_boundary=5)
+    # Seed a stale pre-review reason
+    s = json.loads(summary.read_text(encoding="utf-8"))
+    s["manual_review_reason"] = "Spot-check before use."
+    summary.write_text(json.dumps(s), encoding="utf-8")
+
+    rc = run(decisions, clusters, summary, output)
+    assert rc == 0
+
+    updated = json.loads(summary.read_text(encoding="utf-8"))
+    reason = updated.get("manual_review_reason", "")
+    assert "Spot-check" not in reason
+    assert "completed" in reason.lower()
+    assert "KEEP_DEDUP" in reason
+    assert "downstream staging" in reason
+
+
+def test_missing_phash_threshold_returns_1(tmp_path: Path) -> None:
+    """Missing phash_threshold in dedup_summary.json must produce rc=1."""
+    clusters_path = tmp_path / "dedup_clusters.jsonl"
+    _write_clusters(clusters_path, [_make_boundary_cluster(i) for i in range(1, 4)])
+
+    summary_no_threshold = {
+        "input_records": 100,
+        "provisional": True,
+        "manual_review_required": True,
+        "source": "telegram_private_2026-04-24",
+        "license": "private_training_only",
+    }
+    summary_path = tmp_path / "dedup_summary.json"
+    summary_path.write_text(json.dumps(summary_no_threshold), encoding="utf-8")
+
+    decisions_path = tmp_path / "decisions.json"
+    decisions_path.write_text(json.dumps(_make_decisions([1, 2, 3])), encoding="utf-8")
+
+    output_path = tmp_path / "dedup_review_summary.json"
+    rc = run(decisions_path, clusters_path, summary_path, output_path)
+    assert rc == 1

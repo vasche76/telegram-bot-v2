@@ -84,18 +84,27 @@ def _read_jsonl(path: Path) -> list[dict]:
 def _write_json_atomic(path: Path, data: dict) -> None:
     """Write JSON atomically via temp file + os.replace() to avoid partial output."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=path.parent,
-        prefix=".tmp_",
-        suffix=".json",
-        delete=False,
-    ) as tmp:
-        json.dump(data, tmp, indent=2, ensure_ascii=False)
-        tmp.flush()
-        tmp_path = tmp.name
-    os.replace(tmp_path, path)
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=".tmp_",
+            suffix=".json",
+            delete=False,
+        ) as tmp:
+            tmp_path = tmp.name
+            json.dump(data, tmp, indent=2, ensure_ascii=False)
+            tmp.flush()
+        os.replace(tmp_path, path)
+    except BaseException:
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        raise
 
 
 def _sha256_file(path: Path) -> str:
@@ -110,11 +119,11 @@ def _sha256_file(path: Path) -> str:
 # ─── Cluster loading ──────────────────────────────────────────────────────────
 
 
-def _load_boundary_clusters(clusters_path: Path) -> list[dict]:
-    """Return all perceptual hamming==8 cluster records."""
+def _load_boundary_clusters(clusters_path: Path, phash_threshold: int) -> list[dict]:
+    """Return all perceptual clusters at the boundary hamming distance."""
     return [
         r for r in _read_jsonl(clusters_path)
-        if r.get("cluster_type") == "perceptual" and r.get("hamming_distance") == 8
+        if r.get("cluster_type") == "perceptual" and r.get("hamming_distance") == phash_threshold
     ]
 
 
@@ -132,7 +141,7 @@ def _validate_completeness(
 # ─── Threshold suggestion ─────────────────────────────────────────────────────
 
 
-def _suggest_threshold(fp_rate: float, current_threshold: int = 8) -> int:
+def _suggest_threshold(fp_rate: float, current_threshold: int) -> int:
     """Directional heuristic: lower threshold proportional to observed FP rate."""
     return max(1, current_threshold - round(fp_rate * current_threshold))
 
@@ -164,14 +173,48 @@ def run(
     with decisions_path.open(encoding="utf-8") as fh:
         decisions_data = json.load(fh)
 
-    decisions_by_id: dict[int, dict] = {
-        d["cluster_id"]: d for d in decisions_data.get("decisions", [])
-    }
+    decisions_by_id: dict[int, dict] = {}
+    for _i, _d in enumerate(decisions_data.get("decisions", [])):
+        if "cluster_id" not in _d:
+            log.error("Decision entry #%d is missing 'cluster_id': %r", _i, _d)
+            return 1
+        _raw_cid = _d["cluster_id"]
+        if _raw_cid is None or isinstance(_raw_cid, bool):
+            log.error("Decision entry #%d has invalid cluster_id: %r", _i, _raw_cid)
+            return 1
+        if isinstance(_raw_cid, int):
+            _cid = _raw_cid
+        elif isinstance(_raw_cid, str):
+            try:
+                _cid = int(_raw_cid)
+            except ValueError:
+                log.error(
+                    "Decision entry #%d has non-coercible string cluster_id: %r", _i, _raw_cid
+                )
+                return 1
+        else:
+            log.error(
+                "Decision entry #%d has non-integer cluster_id (type=%s): %r",
+                _i, type(_raw_cid).__name__, _raw_cid,
+            )
+            return 1
+        _entry = dict(_d)
+        _entry["cluster_id"] = _cid
+        decisions_by_id[_cid] = _entry
 
-    # Load dedup_summary early for guard checks
+    # Load dedup_summary early for guard checks and threshold resolution
     with summary_path.open(encoding="utf-8") as fh:
         dedup_summary = json.load(fh)
     source_already_final = not dedup_summary.get("provisional", True)
+
+    phash_threshold = dedup_summary.get("phash_threshold")
+    if phash_threshold is None or not isinstance(phash_threshold, int) or phash_threshold < 1:
+        log.error(
+            "dedup_summary.json missing or invalid 'phash_threshold' (got %r). "
+            "Cannot determine boundary cluster scope.",
+            phash_threshold,
+        )
+        return 1
 
     # ── ADV-001: Output overwrite protection ──────────────────────────────────
     if output_path.exists() and not force:
@@ -180,7 +223,9 @@ def run(
             if existing_output.get("review_complete") is True:
                 log.error(
                     "Output %s already contains a finalized review (review_complete=true). "
-                    "Use --force to overwrite.",
+                    "A previous finalization run may have completed successfully. "
+                    "If an interrupted run left this file in an inconsistent state, "
+                    "use --force to overwrite and re-finalize.",
                     output_path,
                 )
                 return 1
@@ -188,12 +233,12 @@ def run(
             pass  # unreadable existing file — allow overwrite
 
     try:
-        boundary = _load_boundary_clusters(clusters_path)
+        boundary = _load_boundary_clusters(clusters_path, phash_threshold)
     except ValueError as exc:
         log.error("%s", exc)
         return 1
 
-    log.info("Boundary clusters (hamming==8) in clusters file: %d", len(boundary))
+    log.info("Boundary clusters (hamming==%d) in clusters file: %d", phash_threshold, len(boundary))
     log.info("Decisions loaded from file: %d", len(decisions_by_id))
 
     # ── ADV-003: Cluster mismatch detection ───────────────────────────────────
@@ -263,7 +308,7 @@ def run(
         and not is_incomplete
     )
 
-    current_threshold = decisions_data.get("threshold_reviewed", 8)
+    current_threshold = decisions_data.get("threshold_reviewed", phash_threshold)
     suggested_threshold = _suggest_threshold(fp_rate, current_threshold) if fp_exceeded else None
 
     threshold_recommendation = "validated" if can_finalize else "lower_threshold"
@@ -305,7 +350,7 @@ def run(
 
     # ── Human-readable summary ────────────────────────────────────────────────
     print("\n─── Dedup Review Summary ───────────────────────────────")
-    print(f"  Boundary clusters (hamming=8):  {len(boundary)}")
+    print(f"  Boundary clusters (hamming={phash_threshold}):  {len(boundary)}")
     print(f"  Reviewed:                       {total_reviewed}")
     print(f"  KEEP_DEDUP:                     {keep_count}")
     print(f"  FALSE_POSITIVE:                 {counts['FALSE_POSITIVE']}")
@@ -334,6 +379,14 @@ def run(
 
         dedup_summary["provisional"] = False
         dedup_summary["manual_review_required"] = False
+        dedup_summary["manual_review_reason"] = (
+            f"Manual review completed for boundary clusters at phash_threshold={phash_threshold}: "
+            f"{keep_count}/{total_reviewed} KEEP_DEDUP, "
+            f"{counts['FALSE_POSITIVE']} FALSE_POSITIVE, "
+            f"{mixed_count} MIXED, "
+            f"{unsure_count} UNSURE. "
+            f"Dedup approved for downstream staging."
+        )
         dedup_summary["review_completed_at"] = datetime.now(timezone.utc).isoformat()
         _write_json_atomic(summary_path, dedup_summary)
         log.info("Cleared provisional=true in %s", summary_path)
