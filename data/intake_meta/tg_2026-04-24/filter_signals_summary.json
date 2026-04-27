@@ -1,0 +1,17 @@
+{
+  "total_images": 32420,
+  "duplicate_manifest_filename_count": 0,
+  "no_manifest_record_count": 0,
+  "low_res_count": 371,
+  "extreme_aspect_count": 281,
+  "tiny_file_count": 137,
+  "caption_lure_keyword_count": 846,
+  "caption_fish_part_keyword_count": 19,
+  "caption_fry_keyword_count": 5,
+  "caption_no_fish_keyword_count": 3,
+  "caption_text_heavy_count": 4913,
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only",
+  "generated_at": "2026-04-27T07:53:32.332838+00:00",
+  "schema_version": 1
+}

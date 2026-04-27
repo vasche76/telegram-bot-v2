@@ -94,3 +94,69 @@ COARSE_CATEGORIES: list[str] = [
     "unknown_needs_review",
 ]
 COARSE_CATEGORIES_SET: set[str] = set(COARSE_CATEGORIES)
+
+# ─── U4 Phase B heuristic constants ──────────────────────────────────────────
+
+# File-size bucket thresholds (calibrated from actual corpus):
+# p25=161KB, p50=214KB, p75=278KB, p95=393KB
+FILE_SIZE_BUCKET_TINY_MAX: int = 50_000     # bytes; < 50 KB  → "tiny"  (0.4% of corpus)
+FILE_SIZE_BUCKET_SMALL_MAX: int = 150_000   # bytes; < 150 KB → "small" (~25% of corpus)
+FILE_SIZE_BUCKET_MEDIUM_MAX: int = 400_000  # bytes; < 400 KB → "medium" (~71% of corpus)
+                                             # ≥ 400 KB → "large" (~4% of corpus)
+
+# Caption text-heavy threshold
+CAPTION_TEXT_HEAVY_THRESHOLD: int = 200  # chars; > 200 → caption_text_heavy=True
+
+# Caption keyword hint frozensets — weak signals only, NOT truth labels.
+# Conservative lists: high-FPR terms (резина, силикон, снасть, приглашаем) excluded.
+# This corpus is a fishing-club *reporting* channel — lure names appear in catch reports.
+
+# Lure/gear-specific product names only.
+CAPTION_LURE_KEYWORD_HINTS: frozenset[str] = frozenset({
+    "воблер",    # wobbler / crankbait
+    "воблеры",
+    "блесна",    # spoon lure
+    "блёсны",
+    "мормышка",  # jig / ice fishing lure
+    "балансир",  # balance jig (ice fishing)
+    "спиннер",   # spinner
+    "раттлин",   # rattlin lure
+    "раклин",    # rattlin variant
+    "твистер",   # soft twister body (less risky than "резина")
+    "топвотер",  # topwater
+})
+
+# Fish-processing / filleting terms.
+# EXCLUDE: икра (roe — appears in lure descriptions too),
+#          чистк (appears in prize captions: "сертификат на чистку улова")
+CAPTION_FISH_PART_KEYWORD_HINTS: frozenset[str] = frozenset({
+    "разделк",   # filleting/processing (substring: разделка, разделки)
+    "потрош",    # gutting (substring: потрошить, потрошение)
+    "хребет",    # backbone/spine
+    "жабры",     # gills
+    "филе",      # fillet
+    "плавник",   # fin
+})
+
+# Juvenile / fry fish terms — specific enough to have low FPR.
+CAPTION_FRY_KEYWORD_HINTS: frozenset[str] = frozenset({
+    "малёк",     # fry (singular)
+    "мальки",    # fry (plural nominative)
+    "мальков",   # fry (genitive)
+    "малькам",   # fry (dative)
+    "мальками",  # fry (instrumental)
+    "молодь",    # juvenile (collective)
+    "сеголеток", # fish of the year / fingerling
+    "молодняк",  # young stock
+})
+
+# Announcement / administrative content terms.
+# EXCLUDE: конкурс, турнир, соревнование, приглашаем — appear with fish photos.
+CAPTION_NO_FISH_KEYWORD_HINTS: frozenset[str] = frozenset({
+    "объявление",    # announcement / notice
+    "расписание",    # schedule / timetable
+    "записывайтесь", # sign up / register
+    "регистрация",   # registration
+    "афиша",         # event poster / program
+    "анонс",         # promo / announcement
+})
