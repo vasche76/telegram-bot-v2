@@ -1,0 +1,78 @@
+{
+  "schema_version": "u5_external_intake_v1",
+  "generated_at": "2026-05-01T14:17:18.494977+00:00",
+  "summary": {
+    "total_sources": 6,
+    "skipped_sources": 4,
+    "usable_for_training": 6,
+    "unusable_for_training": 0,
+    "training_data_ready": 2,
+    "training_data_pending_download": 4
+  },
+  "usable_sources": [
+    {
+      "source_id": "deepfish_jcu",
+      "name": "DeepFish (James Cook University)",
+      "license": "CC-BY-4.0",
+      "download_status": "not_downloaded",
+      "training_note": "Useful for stage A (whole_fish vs no_fish) structural training. NOT suitable for stage B — tropical species, not Russian freshwater."
+    },
+    {
+      "source_id": "gbif_freshwater",
+      "name": "GBIF CC0/CC-BY freshwater fish photos",
+      "license": "CC0-1.0 and CC-BY-4.0 (filtered by script)",
+      "download_status": "partial",
+      "training_note": "Good for stage B (species classification). Images are mostly specimen/museum/underwater — different domain from recreational photos."
+    },
+    {
+      "source_id": "inaturalist_api",
+      "name": "iNaturalist Public API (research-grade)",
+      "license": "CC0, CC-BY, CC-BY-SA (filtered by script)",
+      "download_status": "partial",
+      "training_note": "Recommended primary external source — domain closest to Telegram fishing photos. License is per-observation: script must filter CC0/CC-BY/CC-BY-SA."
+    },
+    {
+      "source_id": "fishnet_open_images",
+      "name": "FishNet Open Images Database (UC San Diego)",
+      "license": "CC-BY-4.0 (claimed)",
+      "download_status": "not_downloaded",
+      "training_note": "High potential — wide species coverage. Manual download required (Google Drive). Verify license per-image if possible."
+    },
+    {
+      "source_id": "fish_vista",
+      "name": "Fish-Vista (NC State / BGNN)",
+      "license": "CC-BY-4.0 (claimed for image data; verify per-image)",
+      "download_status": "not_downloaded",
+      "training_note": "Museum specimens — very different domain from fishing photos. Good for structural 'is this a fish' classifier. Less useful for species matching with recreational photos."
+    },
+    {
+      "source_id": "wikimedia_commons_fish",
+      "name": "Wikimedia Commons (fish category, explicit license filter)",
+      "license": "CC0, CC-BY, CC-BY-SA (per-file, API-filtered)",
+      "download_status": "not_downloaded",
+      "training_note": "License must be verified per-image via API. Do not use files with unclear or 'some rights reserved' license."
+    }
+  ],
+  "skipped_sources": [
+    {
+      "source_id": "kaggle_fish_datasets",
+      "name": "Kaggle fish datasets (various)",
+      "skip_reason": "Requires Kaggle account login — prohibited by project rules"
+    },
+    {
+      "source_id": "imagenet_fish",
+      "name": "ImageNet (fish synsets)",
+      "skip_reason": "Requires account registration — prohibited by project rules"
+    },
+    {
+      "source_id": "fishbase_images",
+      "name": "FishBase image scraping",
+      "skip_reason": "No bulk API; individual scraping would violate ToS"
+    },
+    {
+      "source_id": "google_bing_scraping",
+      "name": "Google / Bing / Yandex image search",
+      "skip_reason": "Random internet scraping — license unclear, prohibited by project rules"
+    }
+  ]
+}

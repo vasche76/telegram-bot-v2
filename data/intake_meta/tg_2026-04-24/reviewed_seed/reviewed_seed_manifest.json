@@ -1,0 +1,45 @@
+{
+  "schema_version": "u4_phase_e_seed_v1",
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only",
+  "run_id": "rvrun_20260427T184629Z",
+  "phase": "U4_PHASE_E_LITE",
+  "generated_at": "2026-05-01T14:12:53.924016+00:00",
+  "batches_included": [
+    "0001",
+    "0002"
+  ],
+  "record_counts": {
+    "seed_total": 258,
+    "excluded_total": 242,
+    "unreviewed_not_eligible": 31920
+  },
+  "mvp_class_mapping": {
+    "fish": "fish",
+    "fish_part": "fish",
+    "fry_juvenile": "needs_human_review",
+    "no_fish": "not_fish_or_other",
+    "lure_gear": "not_fish_or_other",
+    "poster_screenshot": "not_fish_or_other",
+    "bad_quality": "needs_human_review",
+    "out_of_scope": "needs_human_review",
+    "duplicate_suspect": "needs_human_review",
+    "unsure": "needs_human_review"
+  },
+  "mvp_confidence_min": 3,
+  "mvp_class_counts": {
+    "fish": 245,
+    "not_fish_or_other": 13,
+    "needs_human_review": 0
+  },
+  "training_usable_counts": {
+    "fish": 245,
+    "not_fish_or_other": 13,
+    "total": 258
+  },
+  "data_integrity": {
+    "source_phase_c_labels_used_as_truth": false,
+    "unreviewed_records_included": false,
+    "label_provenance": "manual_human_review_only"
+  }
+}

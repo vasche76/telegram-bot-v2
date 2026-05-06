@@ -1,0 +1,31 @@
+{
+  "schema_version": "mvp_training_v1",
+  "generated_at": "2026-05-01T15:02:48.839573+00:00",
+  "structural_classes": [
+    "fish",
+    "not_fish_or_other"
+  ],
+  "class_definitions": {
+    "fish": {
+      "description": "Whole fish visible, manually reviewed at confidence >= 3",
+      "sources": [
+        "telegram_reviewed (fish, fish_part at conf>=3)",
+        "external_public (stage_b species)"
+      ]
+    },
+    "not_fish_or_other": {
+      "description": "No fish, lure/gear, poster/screenshot — not a fishing catch",
+      "sources": [
+        "telegram_reviewed (no_fish, lure_gear, poster_screenshot at conf>=3)",
+        "external_public (stage_a no_fish — iNat birds CC-licensed)",
+        "external_public (stage_a lure — Wikimedia Commons CC-licensed)"
+      ]
+    }
+  },
+  "data_integrity": {
+    "phase_c_labels_used_as_truth": false,
+    "unreviewed_telegram_records_included": false,
+    "label_provenance": "manual_human_review_or_external_public_only",
+    "experimental": true
+  }
+}

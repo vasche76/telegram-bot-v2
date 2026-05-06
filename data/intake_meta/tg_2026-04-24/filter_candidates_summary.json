@@ -1,0 +1,34 @@
+{
+  "total_images": 32420,
+  "by_candidate_category": {
+    "fish": 0,
+    "no_fish": 0,
+    "lure_fishing_gear": 0,
+    "fish_part": 16,
+    "fry_juvenile": 3,
+    "poster_screenshot": 3,
+    "unknown_needs_review": 32398
+  },
+  "by_confidence": {
+    "high": 0,
+    "medium": 3,
+    "low": 32417
+  },
+  "review_required_count": 32420,
+  "conflict_flag_count": 771,
+  "by_reason": {
+    "no_strong_signal": 31557,
+    "low_res": 371,
+    "extreme_aspect": 281,
+    "caption_lure_hint": 841,
+    "tiny_file": 137,
+    "caption_no_fish_keyword": 3,
+    "caption_text_heavy": 3,
+    "caption_fish_part_keyword": 16,
+    "caption_fry_keyword": 3
+  },
+  "source": "telegram_private_2026-04-24",
+  "license": "private_training_only",
+  "generated_at": "2026-04-27T08:15:19.681783+00:00",
+  "schema_version": 1
+}

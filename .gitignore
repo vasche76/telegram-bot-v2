@@ -5,6 +5,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+venv/
+venv_ml/
 .DS_Store
 data/*.db
 data/*.db-wal
@@ -38,6 +40,7 @@ data/eval_cases/**/*.webp
 
 # Root / external model weights
 yolov8n.pt
+yolov8n-cls.pt
 *.cache
 .compound-engineering/*.local.yaml
 .context/
@@ -61,6 +64,15 @@ data/intake_meta/**/audit.jsonl
 # per-cluster decision files (may contain reviewer notes) — local-only, never commit
 data/intake_meta/**/review/
 
+# U4 Phase D manual review — local-only artifacts (HTML, decision JSON, thumbnails, secret)
+/review/
+review/.review_secret
+review/assets/
+review/filter_review_batch_*.html
+review/filter_decisions_*.json
+review/filter_review_manifest_*.json
+review/filter_decisions_aggregate_*.json
+
 # U4 filter pipeline — full-image-list JSONL files are local-only (filenames + metadata,
 # exceeds the cluster-summary precedent); tracked summary JSON files are NOT listed here.
 data/intake_meta/**/filter_universe.jsonl
@@ -68,3 +80,29 @@ data/intake_meta/**/filter_signals.jsonl
 data/intake_meta/**/filter_candidates.jsonl
 data/intake_meta/**/filter_candidates_final.jsonl
 data/intake_meta/**/filter_decisions.jsonl
+
+# U4 Phase E reviewed seed — record-level JSONL files contain review IDs, local-only.
+# Privacy-safe JSON/MD summaries in reviewed_seed/ are NOT listed here (they are tracked).
+data/intake_meta/**/reviewed_seed/*.jsonl
+
+# U5 external public dataset — images are large, stored locally only.
+# Manifest JSON files in external_public/manifests/ ARE tracked.
+data/external_public/samples/
+data/external_public/**/*.jpg
+data/external_public/**/*.jpeg
+data/external_public/**/*.png
+data/external_public/**/*.webp
+
+# MVP training dataset — images and model artifacts are local-only.
+# Manifest JSON/MD files in mvp_training/manifests/ ARE tracked.
+data/mvp_training/structural/
+data/mvp_training/species/
+data/mvp_training/**/*.jpg
+data/mvp_training/**/*.jpeg
+data/mvp_training/**/*.png
+data/mvp_training/**/*.webp
+data/mvp_training/**/*.pt
+data/mvp_training/**/*.pth
+
+# Private evaluation outputs — local only, never commit
+private/

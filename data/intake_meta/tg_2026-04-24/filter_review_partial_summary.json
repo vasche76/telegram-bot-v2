@@ -1,0 +1,67 @@
+{
+  "schema_version": "u4_phase_d_summary_v1",
+  "source": "telegram_private_2026-04-24",
+  "phase": "U4_PHASE_D_MANUAL_REVIEW",
+  "run_id": "rvrun_20260427T184629Z",
+  "mode": "partial",
+  "aggregated_at": "2026-05-01T13:30:59.139965+00:00",
+  "progress": {
+    "total_batches": 130,
+    "reviewed_valid_batches": 2,
+    "blank_unreviewed_batches": 128,
+    "reviewed_records": 500,
+    "unreviewed_records": 31920,
+    "next_unreviewed_batches": [
+      "0003",
+      "0004",
+      "0005",
+      "0006",
+      "0007",
+      "0008",
+      "0009",
+      "0010",
+      "0011",
+      "0012"
+    ]
+  },
+  "decision_type_counts": {
+    "KEEP": 0,
+    "REMOVE": 0,
+    "RELABEL": 500,
+    "UNSURE": 0
+  },
+  "final_category_counts": {
+    "fish": 456,
+    "fish_part": 11,
+    "fry_juvenile": 0,
+    "lure_gear": 4,
+    "no_fish": 7,
+    "poster_screenshot": 2,
+    "bad_quality": 1,
+    "out_of_scope": 18,
+    "duplicate_suspect": 1,
+    "unsure": 0
+  },
+  "confidence_counts": {
+    "1": 107,
+    "2": 115,
+    "3": 90,
+    "4": 113,
+    "5": 75
+  },
+  "training_eligibility": {
+    "training_eligible_count": 169,
+    "reviewed_high_confidence_fish": 156,
+    "reviewed_high_confidence_non_fish_or_excluded": 32,
+    "reviewed_low_confidence": 312,
+    "unreviewed_not_eligible": 31920
+  },
+  "privacy_status": {
+    "contains_review_ids": false,
+    "contains_filenames": false,
+    "contains_paths": false,
+    "contains_captions": false,
+    "contains_sender_metadata": false,
+    "contains_telegram_metadata": false
+  }
+}

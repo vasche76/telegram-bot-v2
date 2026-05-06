@@ -1,0 +1,57 @@
+{
+  "schema_version": "al_negative_selection_v1",
+  "run_id": "alvrun_20260505T204558Z",
+  "source": "telegram_private_2026-04-24",
+  "generated_at": "2026-05-05T20:45:58.524431+00:00",
+  "selection_mode": "negative-focused-v2",
+  "pass_number": 2,
+  "privacy_status": {
+    "counts_only": true,
+    "contains_filenames": false,
+    "contains_review_ids": false,
+    "contains_captions": false,
+    "contains_paths": false
+  },
+  "input": {
+    "total_unreviewed_candidates_scanned": 31423,
+    "inference_attempted": 2500,
+    "inference_ok": 2500,
+    "inference_failed": 0,
+    "skipped_missing_image": 0,
+    "skipped_corrupt_image": 0
+  },
+  "selection": {
+    "total_selected": 235,
+    "batch_count": 1,
+    "batch_size": 250,
+    "by_bucket": {
+      "A_phase_c_negative_categories": 0,
+      "B_caption_keyword_signals": 70,
+      "C_quality_conflict_signals": 60,
+      "D_model_uncertainty": 90,
+      "E_random_controls": 15
+    }
+  },
+  "annotation_guide": {
+    "embedded_in_every_html_batch": true,
+    "model_predictions_shown_in_ui": false,
+    "bias_mitigation": "model_predictions_hidden_from_reviewer",
+    "categories_defined": [
+      "fish",
+      "fish_part",
+      "no_fish",
+      "lure_gear",
+      "poster_screenshot",
+      "bad_quality",
+      "out_of_scope",
+      "duplicate_suspect",
+      "unsure"
+    ]
+  },
+  "model": {
+    "path_relative": "data/fish_models/mvp_structural_v1.pt",
+    "type": "yolov8n-cls",
+    "predictions_used_as": "triage_only_not_labels",
+    "predictions_shown_in_review_ui": false
+  }
+}

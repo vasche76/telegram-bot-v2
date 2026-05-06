@@ -1,0 +1,40 @@
+{
+  "schema_version": "u4_phase_e_seed_summary_v1",
+  "source": "telegram_private_2026-04-24",
+  "run_id": "rvrun_20260427T184629Z",
+  "phase": "U4_PHASE_E_LITE",
+  "generated_at": "2026-05-01T14:12:53.924016+00:00",
+  "batches_included": [
+    "0001",
+    "0002"
+  ],
+  "counts": {
+    "total_reviewed_in_seed": 258,
+    "total_excluded": 242,
+    "unreviewed_not_eligible": 31920
+  },
+  "mvp_class_counts": {
+    "fish": 245,
+    "not_fish_or_other": 13,
+    "needs_human_review": 0
+  },
+  "training_usable": {
+    "total": 258,
+    "fish": 245,
+    "not_fish_or_other": 13,
+    "imbalance_ratio_fish_to_not_fish": 18.85
+  },
+  "excluded_reason_counts": {
+    "low_confidence_2": 115,
+    "ineligible_category_out_of_scope": 18,
+    "ineligible_category_duplicate_suspect": 1,
+    "low_confidence_1": 107,
+    "ineligible_category_bad_quality": 1
+  },
+  "privacy_status": {
+    "contains_review_ids": false,
+    "contains_filenames": false,
+    "contains_captions": false,
+    "counts_only": true
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "schema_version": "mvp_training_v1",
+  "generated_at": "2026-05-01T15:02:48.839573+00:00",
+  "training_status": "READY",
+  "gate_failures": [],
+  "data_summary": {
+    "telegram_reviewed": 258,
+    "external_fish": 979,
+    "external_nofish": 50,
+    "external_lure": 60,
+    "total_fish": 1224,
+    "total_nofish": 123,
+    "total": 1347,
+    "imbalance_ratio": 9.95
+  },
+  "splits": {
+    "train": {
+      "total": 943,
+      "fish": 856,
+      "not_fish_or_other": 87
+    },
+    "val": {
+      "total": 197,
+      "fish": 183,
+      "not_fish_or_other": 14
+    },
+    "test": {
+      "total": 207,
+      "fish": 185,
+      "not_fish_or_other": 22
+    }
+  },
+  "split_seed": 42,
+  "split_ratios": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "leakage_errors": []
+}

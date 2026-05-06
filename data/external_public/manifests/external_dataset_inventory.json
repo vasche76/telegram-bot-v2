@@ -1,0 +1,63 @@
+{
+  "schema_version": "u5_external_intake_v1",
+  "generated_at": "2026-05-01T14:17:18.494977+00:00",
+  "local_external_data": {
+    "stage_b_species_images": {
+      "location": "data/fish_dataset/stage_b/",
+      "source": "GBIF + iNaturalist (CC-licensed)",
+      "total_images": 979,
+      "per_species": {
+        "atlantic_salmon": 80,
+        "bream": 80,
+        "brown_trout": 80,
+        "common_carp": 80,
+        "crucian_carp": 69,
+        "grayling": 80,
+        "ide": 76,
+        "perch": 80,
+        "pike": 80,
+        "rainbow_trout": 80,
+        "roach": 80,
+        "wels_catfish": 69,
+        "whitefish": 45
+      }
+    },
+    "stage_a_raw": {
+      "location": "data/fish_dataset/stage_a/raw/",
+      "source": "TBD — DeepFish or manual",
+      "total_images": 0,
+      "note": "Not yet downloaded; manual step required for DeepFish"
+    }
+  },
+  "pending_downloads": [
+    {
+      "source_id": "deepfish_jcu",
+      "name": "DeepFish (James Cook University)",
+      "download_method": "manual",
+      "blocked_reason": "QLD data portal requires JavaScript-rendered download page — manual step needed. See scripts/fetch_deepfish.py for download instructions.",
+      "size_approx": "~9 GB"
+    },
+    {
+      "source_id": "fishnet_open_images",
+      "name": "FishNet Open Images Database (UC San Diego)",
+      "download_method": "login_required",
+      "blocked_reason": "Hosted on Google Drive, requires browser/manual download. See scripts/fetch_deepfish.py for a similar manual pattern.",
+      "size_approx": "~50+ GB"
+    },
+    {
+      "source_id": "fish_vista",
+      "name": "Fish-Vista (NC State / BGNN)",
+      "download_method": "api",
+      "blocked_reason": "Large dataset; HuggingFace datasets library required. MVP: manual sample download for testing.",
+      "size_approx": "~30+ GB"
+    },
+    {
+      "source_id": "wikimedia_commons_fish",
+      "name": "Wikimedia Commons (fish category, explicit license filter)",
+      "download_method": "api",
+      "blocked_reason": "Not yet downloaded — API adapter available in fetch_wikimedia_lures.py",
+      "size_approx": "variable (sample possible)"
+    }
+  ],
+  "training_recommendation": "For MVP structural training: 1) Download DeepFish (no_fish frames) for stage A negatives. 2) Use existing iNaturalist/GBIF stage_b images for species diversity. 3) Combine with reviewed Telegram seed (fish positives). Minimum needed: 100+ no_fish images for balanced structural training."
+}

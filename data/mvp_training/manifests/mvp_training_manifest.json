@@ -1,0 +1,28 @@
+{
+  "schema_version": "mvp_training_v1",
+  "generated_at": "2026-05-01T15:02:48.839573+00:00",
+  "training_status": "READY",
+  "experimental": true,
+  "sources": {
+    "telegram_reviewed": {
+      "record_count": 258,
+      "provenance": "telegram_private_2026-04-24",
+      "license": "private_training_only",
+      "label_method": "manual_human_review",
+      "phase_c_labels_as_truth": false,
+      "unreviewed_included": false
+    },
+    "external_public": {
+      "fish_count": 979,
+      "nofish_count": 50,
+      "lure_count": 60,
+      "total_nofish_external": 110,
+      "provenance": "external_public",
+      "license": "CC-BY-4.0 and CC0-1.0 (see external_license_report.json)",
+      "license_report": "data/external_public/manifests/external_license_report.json",
+      "lure_license": "CC-BY and CC-BY-SA (Wikimedia Commons, see stage_a/raw/lure/PROVENANCE.json)",
+      "lure_aug_note": "60 lure files = 13 originals + 47 augmented variants; group-aware split prevents aug leakage"
+    }
+  },
+  "gate_failures": []
+}

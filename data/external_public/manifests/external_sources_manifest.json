@@ -1,0 +1,224 @@
+{
+  "schema_version": "u5_external_intake_v1",
+  "generated_at": "2026-05-01T14:17:18.494977+00:00",
+  "access_date": "2026-05-01",
+  "source_count": 6,
+  "skipped_count": 4,
+  "sources": [
+    {
+      "source_id": "deepfish_jcu",
+      "name": "DeepFish (James Cook University)",
+      "url": "https://alzayats.github.io/DeepFish/",
+      "data_url": "https://data.qld.edu.au/article/c0d00059-dfcb-49f5-98ba-d0b6e27ac7ce",
+      "license": "CC-BY-4.0",
+      "license_allows_training": true,
+      "citation": "Saleh A, Laradji IH, Konovalov DA, Bradley M, Wayner D, Bekris M. A realistic fish-habitat dataset to evaluate algorithms for underwater visual analysis. Scientific Reports, 2020. DOI: 10.1038/s41598-020-71639-x",
+      "access_date": "2026-05-01",
+      "description": "~40K underwater frames from Australian tropical freshwater habitats. Split into fish-present (Presence) and fish-absent (Absence) subsets.",
+      "domain": "underwater",
+      "suitability": [
+        "structural_fish_nonfish"
+      ],
+      "usable_for_stage_a": true,
+      "usable_for_stage_b": false,
+      "usable_for_training": true,
+      "training_note": "Useful for stage A (whole_fish vs no_fish) structural training. NOT suitable for stage B — tropical species, not Russian freshwater.",
+      "download_method": "manual",
+      "download_size_approx": "~9 GB",
+      "download_status": "not_downloaded",
+      "download_blocked_reason": "QLD data portal requires JavaScript-rendered download page — manual step needed. See scripts/fetch_deepfish.py for download instructions.",
+      "local_path": null,
+      "file_count": null,
+      "class_counts": {
+        "presence_fish": "~15000",
+        "absence_no_fish": "~25000"
+      }
+    },
+    {
+      "source_id": "gbif_freshwater",
+      "name": "GBIF CC0/CC-BY freshwater fish photos",
+      "url": "https://www.gbif.org",
+      "data_url": "https://api.gbif.org/v1/occurrence/search",
+      "license": "CC0-1.0 and CC-BY-4.0 (filtered by script)",
+      "license_allows_training": true,
+      "citation": "GBIF.org (2026), GBIF Occurrence Download. https://www.gbif.org (accessed 2026-05-01)",
+      "access_date": "2026-05-01",
+      "description": "Biodiversity occurrence data with photos. Filtered to CC0 and CC-BY images only. 15 Russian freshwater species registered. See scripts/fetch_gbif.py.",
+      "domain": "specimen",
+      "suitability": [
+        "structural_fish_nonfish",
+        "species_classification"
+      ],
+      "usable_for_stage_a": true,
+      "usable_for_stage_b": true,
+      "usable_for_training": true,
+      "training_note": "Good for stage B (species classification). Images are mostly specimen/museum/underwater — different domain from recreational photos.",
+      "download_method": "api",
+      "download_size_approx": "variable (capped by --max-items per species)",
+      "download_status": "partial",
+      "download_blocked_reason": null,
+      "local_path": "data/fish_dataset/stage_b",
+      "file_count": 979,
+      "class_counts": {
+        "atlantic_salmon": 80,
+        "bream": 80,
+        "brown_trout": 80,
+        "common_carp": 80,
+        "crucian_carp": 69,
+        "grayling": 80,
+        "ide": 76,
+        "perch": 80,
+        "pike": 80,
+        "rainbow_trout": 80,
+        "roach": 80,
+        "wels_catfish": 69,
+        "whitefish": 45
+      }
+    },
+    {
+      "source_id": "inaturalist_api",
+      "name": "iNaturalist Public API (research-grade)",
+      "url": "https://www.inaturalist.org",
+      "data_url": "https://api.inaturalist.org/v1/observations",
+      "license": "CC0, CC-BY, CC-BY-SA (filtered by script)",
+      "license_allows_training": true,
+      "citation": "iNaturalist contributors, iNaturalist (2026). https://www.inaturalist.org (accessed 2026-05-01). CC-licensed observations only.",
+      "access_date": "2026-05-01",
+      "description": "Research-grade fish observations with CC licenses. Recreational/out-of-water photos — closer domain to Telegram fishing photos. See scripts/fetch_inaturalist.py.",
+      "domain": "recreational_out_of_water",
+      "suitability": [
+        "structural_fish_nonfish",
+        "species_classification"
+      ],
+      "usable_for_stage_a": true,
+      "usable_for_stage_b": true,
+      "usable_for_training": true,
+      "training_note": "Recommended primary external source — domain closest to Telegram fishing photos. License is per-observation: script must filter CC0/CC-BY/CC-BY-SA.",
+      "download_method": "api",
+      "download_size_approx": "variable",
+      "download_status": "partial",
+      "download_blocked_reason": null,
+      "local_path": "data/fish_dataset/stage_b",
+      "file_count": 979,
+      "class_counts": {
+        "atlantic_salmon": 80,
+        "bream": 80,
+        "brown_trout": 80,
+        "common_carp": 80,
+        "crucian_carp": 69,
+        "grayling": 80,
+        "ide": 76,
+        "perch": 80,
+        "pike": 80,
+        "rainbow_trout": 80,
+        "roach": 80,
+        "wels_catfish": 69,
+        "whitefish": 45
+      }
+    },
+    {
+      "source_id": "fishnet_open_images",
+      "name": "FishNet Open Images Database (UC San Diego)",
+      "url": "https://fishnet.ai",
+      "data_url": "https://drive.google.com/drive/folders/1Vl4J5yEgfqrfWVtNHREJYtfCAMHn3Kfl",
+      "license": "CC-BY-4.0 (claimed)",
+      "license_allows_training": true,
+      "citation": "FishNet: A Large-Scale Dataset and Benchmark for Fish Recognition, Detection, and Functional Traits Prediction. Kay et al., arXiv:2304.01779 (2023).",
+      "access_date": "2026-05-01",
+      "description": "~94K fish images, 17K+ species. Large coverage. NOTE: Hosted on Google Drive — requires manual download.",
+      "domain": "mixed_specimen_and_recreational",
+      "suitability": [
+        "structural_fish_nonfish",
+        "species_classification"
+      ],
+      "usable_for_stage_a": true,
+      "usable_for_stage_b": true,
+      "usable_for_training": true,
+      "training_note": "High potential — wide species coverage. Manual download required (Google Drive). Verify license per-image if possible.",
+      "download_method": "login_required",
+      "download_size_approx": "~50+ GB",
+      "download_status": "not_downloaded",
+      "download_blocked_reason": "Hosted on Google Drive, requires browser/manual download. See scripts/fetch_deepfish.py for a similar manual pattern.",
+      "local_path": null,
+      "file_count": null,
+      "class_counts": null
+    },
+    {
+      "source_id": "fish_vista",
+      "name": "Fish-Vista (NC State / BGNN)",
+      "url": "https://bgnn.tulane.edu/fish-vista",
+      "data_url": "https://huggingface.co/datasets/Imageomics/fish-vista",
+      "license": "CC-BY-4.0 (claimed for image data; verify per-image)",
+      "license_allows_training": true,
+      "citation": "Mehrab et al., Fish-Vista: A Multi-Purpose Dataset for Understanding & Identification of Traits in Fish. NeurIPS 2024 Datasets and Benchmarks Track. arXiv:2407.08027.",
+      "access_date": "2026-05-01",
+      "description": "60K+ fish images from museum specimens. Trait-level annotations. Primarily lateral-view museum specimens. Available via HuggingFace Datasets.",
+      "domain": "museum_specimen",
+      "suitability": [
+        "structural_fish_nonfish",
+        "species_classification"
+      ],
+      "usable_for_stage_a": true,
+      "usable_for_stage_b": true,
+      "usable_for_training": true,
+      "training_note": "Museum specimens — very different domain from fishing photos. Good for structural 'is this a fish' classifier. Less useful for species matching with recreational photos.",
+      "download_method": "api",
+      "download_size_approx": "~30+ GB",
+      "download_status": "not_downloaded",
+      "download_blocked_reason": "Large dataset; HuggingFace datasets library required. MVP: manual sample download for testing.",
+      "local_path": null,
+      "file_count": null,
+      "class_counts": null
+    },
+    {
+      "source_id": "wikimedia_commons_fish",
+      "name": "Wikimedia Commons (fish category, explicit license filter)",
+      "url": "https://commons.wikimedia.org",
+      "data_url": "https://commons.wikimedia.org/w/api.php",
+      "license": "CC0, CC-BY, CC-BY-SA (per-file, API-filtered)",
+      "license_allows_training": true,
+      "citation": "Wikimedia Commons contributors (2026). https://commons.wikimedia.org (accessed 2026-05-01). CC-licensed files only. Attribution required for CC-BY/CC-BY-SA.",
+      "access_date": "2026-05-01",
+      "description": "Encyclopedia-style fish photos. Varied quality. No login required — MediaWiki API. See scripts/fetch_wikimedia_lures.py for pattern.",
+      "domain": "mixed",
+      "suitability": [
+        "structural_fish_nonfish",
+        "species_classification"
+      ],
+      "usable_for_stage_a": true,
+      "usable_for_stage_b": true,
+      "usable_for_training": true,
+      "training_note": "License must be verified per-image via API. Do not use files with unclear or 'some rights reserved' license.",
+      "download_method": "api",
+      "download_size_approx": "variable (sample possible)",
+      "download_status": "not_downloaded",
+      "download_blocked_reason": "Not yet downloaded — API adapter available in fetch_wikimedia_lures.py",
+      "local_path": null,
+      "file_count": null,
+      "class_counts": null
+    }
+  ],
+  "skipped_sources": [
+    {
+      "source_id": "kaggle_fish_datasets",
+      "name": "Kaggle fish datasets (various)",
+      "skip_reason": "Requires Kaggle account login — prohibited by project rules"
+    },
+    {
+      "source_id": "imagenet_fish",
+      "name": "ImageNet (fish synsets)",
+      "skip_reason": "Requires account registration — prohibited by project rules"
+    },
+    {
+      "source_id": "fishbase_images",
+      "name": "FishBase image scraping",
+      "skip_reason": "No bulk API; individual scraping would violate ToS"
+    },
+    {
+      "source_id": "google_bing_scraping",
+      "name": "Google / Bing / Yandex image search",
+      "skip_reason": "Random internet scraping — license unclear, prohibited by project rules"
+    }
+  ],
+  "data_integrity_note": "External public data is ALWAYS kept separate from Telegram-private data. No Telegram metadata appears in this manifest."
+}
